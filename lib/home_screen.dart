@@ -47,8 +47,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // Android: ca-app-pub-3940256099942544/6300978111
   // iOS: ca-app-pub-3940256099942544/2934735716
   final String _bannerAdUnitId = Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/6300978111' // AndroidのテストID
-      : 'ca-app-pub-3940256099942544/2934735716'; // iOSのテストID
+      ? 'ca-app-pub-7148683667182672/9797170752' // AndroidのテストID
+      : 'ca-app-pub-7148683667182672/3020009417'; // iOSのテストID
 
   @override
   void initState() {
