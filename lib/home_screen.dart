@@ -354,116 +354,136 @@ $brandListString
         backgroundColor: Colors.grey[850], // AppBarの背景色
         elevation: 0, // AppBarの影を消してフラットに
       ),
-      body: Column( // bodyをColumnでラップ
+      body: Stack( // bodyをStackでラップ
         children: [
-          Expanded( // メインコンテンツをExpandedでラップして残りのスペースを埋める
-            child: Container( // 全体にグラデーション背景を適用
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [darkBackgroundColor, Colors.grey[850]!],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        height: 300,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade700),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.grey.shade800.withOpacity(0.5), // 少し透明に
-                        ),
-                        child: _imageFile != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: Image.file(_imageFile!, fit: BoxFit.cover),
-                              )
-                            : Center(child: Text('画像を選択してください', style: TextStyle(color: Colors.grey[400]))),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      if (_imageFile == null)
-                        ElevatedButton.icon(
-                          onPressed: _pickImage,
-                          icon: const Icon(Icons.photo_library),
-                          label: const Text('1. 画像を選択'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: darkPrimaryColor,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          Column( // 既存のColumnをStackの子にする
+            children: [
+              Expanded( // メインコンテンツをExpandedでラップして残りのスペースを埋める
+                child: Container( // 全体にグラデーション背景を適用
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [darkBackgroundColor, Colors.grey[850]!],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            height: 300,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade700),
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.grey.shade800.withOpacity(0.5), // 少し透明に
+                            ),
+                            child: _imageFile != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(11),
+                                    child: Image.file(_imageFile!, fit: BoxFit.cover),
+                                  )
+                                : Center(child: Text('画像を選択してください', style: TextStyle(color: Colors.grey[400]))),
                           ),
-                        )
-                      else
-                        ElevatedButton.icon(
-                          onPressed: _resetImageSelection,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('画像を再選択',style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18)),
-                          style: ElevatedButton.styleFrom(
-                            shadowColor: Colors.transparent,
-                            backgroundColor: Colors.transparent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      
-                      Text('2. 検索対象のメーカーを選択', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[300])),
-                      const SizedBox(height: 8),
-                      _buildBrandSelection(), // スタイルはメソッド内で調整
-                      const SizedBox(height: 16),
-                      
-                      ElevatedButton.icon(
-                        onPressed: _imageFile == null || _isLoading ? null : _analyzeImage,
-                        icon: const Icon(Icons.analytics),
-                        label: const Text('3. この画像を解析'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 0, 196, 230),
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-                      //Divider(color: Colors.grey[700]),
-
-                      if (_isLoading)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkPrimaryColor)),
-                                const SizedBox(height: 10),
-                                Text('AIが画像を解析中です...', style: TextStyle(color: Colors.grey[400])),
-                              ],
+                          const SizedBox(height: 16),
+                          
+                          if (_imageFile == null)
+                            ElevatedButton.icon(
+                              onPressed: _pickImage,
+                              icon: const Icon(Icons.photo_library),
+                              label: const Text('1. 画像を選択'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: darkPrimaryColor,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            )
+                          else
+                            ElevatedButton.icon(
+                              onPressed: _resetImageSelection,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('画像を再選択',style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18)),
+                              style: ElevatedButton.styleFrom(
+                                shadowColor: Colors.transparent,
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          
+                          Text('2. 検索対象のメーカーを選択', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[300])),
+                          const SizedBox(height: 8),
+                          _buildBrandSelection(), // スタイルはメソッド内で調整
+                          const SizedBox(height: 16),
+                          
+                          ElevatedButton.icon(
+                            onPressed: _imageFile == null || _isLoading ? null : _analyzeImage,
+                            icon: const Icon(Icons.analytics),
+                            label: const Text('3. この画像を解析'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color.fromARGB(255, 0, 196, 230),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                           ),
-                        ),
-                      // _errorMessage と _products の表示ロジックは ResultsScreen に移動したため削除
-                      // if (_errorMessage != null) ...
-                      // if (!_isLoading && _products.isNotEmpty) ...
-                      // if (!_isLoading && _products.isEmpty && _imageFile != null && _errorMessage == null) ...
-                    ],
+
+                          const SizedBox(height: 24),
+                          //Divider(color: Colors.grey[700]),
+
+                          // _isLoading のインジケーター表示はStackの別のレイヤーに移動
+                          // if (_isLoading)
+                          //   Center(
+                          //     child: Padding(
+                          //       padding: const EdgeInsets.all(16.0),
+                          //       child: Column(
+                          //         children: [
+                          //           CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkPrimaryColor)),
+                          //           const SizedBox(height: 10),
+                          //           Text('AIが画像を解析中です...', style: TextStyle(color: Colors.grey[400])),
+                          //         ],
+                          //       ),
+                          //     ),
+                          //   ),
+                          // _errorMessage と _products の表示ロジックは ResultsScreen に移動したため削除
+                          // if (_errorMessage != null) ...
+                          // if (!_isLoading && _products.isNotEmpty) ...
+                          // if (!_isLoading && _products.isEmpty && _imageFile != null && _errorMessage == null) ...
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+              // バナー広告のコンテナ
+              if (_bannerAd != null && _isBannerAdLoaded)
+                Container(
+                  alignment: Alignment.center,
+                  width: _bannerAd!.size.width.toDouble(),
+                  height: _bannerAd!.size.height.toDouble(),
+                  child: AdWidget(ad: _bannerAd!),
+                ),
+            ],
           ),
-          // バナー広告のコンテナ
-          if (_bannerAd != null && _isBannerAdLoaded)
+          // ローディングインジケーターを画面中央に表示
+          if (_isLoading)
             Container(
-              alignment: Alignment.center,
-              width: _bannerAd!.size.width.toDouble(),
-              height: _bannerAd!.size.height.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
+              color: Colors.black.withOpacity(0.5), // 背景を少し暗くしてインジケーターを見やすくする
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkPrimaryColor)),
+                    const SizedBox(height: 20),
+                    Text('AIが画像を解析中です...', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ],
+                ),
+              ),
             ),
         ],
       ),
