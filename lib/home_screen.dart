@@ -9,7 +9,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart'; // 追加
+import 'package:google_mobile_ads/google_mobile_ads.dart'; // AdMobパッケージをインポート
 import 'procuctmodel.dart';
+import 'results_screen.dart'; // 新しい画面をインポート
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,11 +41,51 @@ class _HomeScreenState extends State<HomeScreen> {
     'ニトリ': 'https://www.nitori-net.jp/ec/',
   };
 
+  BannerAd? _bannerAd;
+  bool _isBannerAdLoaded = false;
+
+  // テスト用の広告ユニットID (実際のIDに置き換えてください)
+  // Android: ca-app-pub-3940256099942544/6300978111
+  // iOS: ca-app-pub-3940256099942544/2934735716
+  final String _bannerAdUnitId = Platform.isAndroid
+      ? 'ca-app-pub-3940256099942544/6300978111' // AndroidのテストID
+      : 'ca-app-pub-3940256099942544/2934735716'; // iOSのテストID
+
   @override
   void initState() {
     super.initState();
     // 初期状態で全てのメーカーを選択状態にする
     _selectedBrands = {for (var brand in _availableBrands) brand: true};
+    _loadBannerAd();
+  }
+
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: _bannerAdUnitId,
+      request: const AdRequest(),
+      size: AdSize.largeBanner,
+      listener: BannerAdListener(
+        onAdLoaded: (Ad ad) {
+          debugPrint('$BannerAd loaded.');
+          setState(() {
+            _isBannerAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (Ad ad, LoadAdError error) {
+          debugPrint('$BannerAd failedToLoad: $error');
+          ad.dispose();
+        },
+        onAdOpened: (Ad ad) => debugPrint('$BannerAd onAdOpened.'),
+        onAdClosed: (Ad ad) => debugPrint('$BannerAd onAdClosed.'),
+        onAdImpression: (Ad ad) => debugPrint('$BannerAd onAdImpression.'),
+      ),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
   }
 
   // 選択されたメーカーに基づいてAPIプロンプトを動的に生成する関数
@@ -94,7 +136,7 @@ $brandListString
 
 類似商品を、その商品一つ一つについて、以下の情報を厳密なJSON形式でリストとして返してください。
 複数の商品が該当する場合は、それぞれの商品情報をリストに含めてください。
-最大3つの類似商品を提案してください。
+各メーカー5件ずつ提案してください。
 
 出力形式のルール:
 - ルート要素は `products` というキーを持つJSON配列（リスト）とします。
@@ -123,6 +165,14 @@ $brandListString
         // _currentSearchType = ""; // 不要になる可能性
       });
     }
+  }
+
+  Future<void> _resetImageSelection() async {
+    setState(() {
+      _imageFile = null;
+      _products = [];
+      _errorMessage = null;
+    });
   }
 
   Future<void> _analyzeImage() async {
@@ -159,31 +209,70 @@ $brandListString
         Content.multi([TextPart(prompt), imagePart])
       ]);
 
+      List<Product> products = [];
+      String? errorMessage;
+
       if (response.text != null) {
         final cleanedJson = response.text!.replaceAll('```json', '').replaceAll('```', '').trim();
         final decodedJson = jsonDecode(cleanedJson);
         final List<dynamic> productListJson = decodedJson['products'];
         
-        setState(() {
-          _products = productListJson.map((itemJson) {
+        products = productListJson.map((itemJson) {
             final Map<String, dynamic> item = itemJson as Map<String, dynamic>;
             // product_urlの処理はボトムシート内の類似商品検索でも同様に必要
             return Product.fromJson(item);
           }).toList();
-        });
       } else {
-         throw Exception('APIから有効なレスポンスがありませんでした。');
+         errorMessage = 'APIから有効なレスポンスがありませんでした。';
+      }
+      // 状態を更新してから画面遷移
+      setState(() {
+        _products = products;
+        _errorMessage = errorMessage;
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ResultsScreen(
+              products: _products,
+              errorMessage: _errorMessage,
+              selectedBrands: _selectedBrands, // ResultsScreenに渡す
+              brandTopPageUrls: _brandTopPageUrls, // ResultsScreenに渡す
+              fetchSimilarProductsApiCallback: _fetchSimilarProductsApi, // ResultsScreenに渡す
+            ),
+          ),
+        );
       }
 
     } catch (e) {
       setState(() {
         _errorMessage = 'エラーが発生しました: ${e.toString()}';
-      });
-    } finally {
-      setState(() {
         _isLoading = false;
       });
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ResultsScreen(
+              products: [], // エラー時は空のリスト
+              errorMessage: _errorMessage,
+              selectedBrands: _selectedBrands,
+              brandTopPageUrls: _brandTopPageUrls,
+              fetchSimilarProductsApiCallback: _fetchSimilarProductsApi,
+            ),
+          ),
+        );
+      }
     }
+    // finallyブロックは不要になるか、isLoadingの制御のみ残す
+    // finally {
+    //   setState(() {
+    //     _isLoading = false;
+    //   });
+    // }
   }
 
   // 画面全体の類似商品検索は削除または変更
@@ -250,401 +339,169 @@ $brandListString
     }
   }
 
-  void _showSimilarProductsBottomSheet(BuildContext context, Product originalProduct) {
-    // 状態変数を StatefulBuilder の外に移動
-    bool isLoadingSimilar = true;
-    List<Product> similarProducts = [];
-    String? errorSimilarMessage;
-    bool initialLoadStarted = false; // 初回ロードが開始されたかを追跡するフラグ
+@override
+  Widget build(BuildContext context) {
+    // ダークテーマ用のベースカラー
+    final Color darkPrimaryColor = const Color.fromARGB(255, 193, 115, 196)!;
+    final Color darkBackgroundColor = Colors.grey[900]!;
+    final Color darkCardColor = Colors.grey[850]!.withOpacity(0.9);
+    final Color darkChipColor = Colors.grey[700]!;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // 内容が多くなる可能性があるのでtrue
-      builder: (BuildContext sheetContext) {
-        // loadSimilarProducts 関数も StatefulBuilder の外に移動するか、
-        // StatefulBuilder の中で定義し、外の変数をキャプチャするようにする。
-        // ここでは StatefulBuilder の中で定義し、外の変数を更新するようにします。
-
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setSheetState) {
-            // この builder が呼ばれるたびに loadSimilarProducts が再定義されるが、
-            // 中で参照する isLoadingSimilar などは外側のスコープのものになる。
-
-            Future<void> loadSimilarProducts() async {
-              // isLoadingSimilar は外側のスコープのものを参照・更新
-              // initialLoadStarted も同様
-              if (!isLoadingSimilar) return; // すでにロード完了または進行中なら何もしない
-
-              try {
-                final activeBrands = _selectedBrands.entries
-                    .where((entry) => entry.value)
-                    .map((entry) => entry.key)
-                    .toList();
-                if (activeBrands.isEmpty) {
-                  setSheetState(() { 
-                    errorSimilarMessage = '検索対象のメーカーを1つ以上選択してください。';
-                    isLoadingSimilar = false;
-                  });
-                  return; 
-                }
-                final products = await _fetchSimilarProductsApi(originalProduct, activeBrands);
-                setSheetState(() {
-                  if (products.length > 3) {
-                    similarProducts = products.sublist(0, 3);
-                  } else {
-                    similarProducts = products;
-                  }
-                  isLoadingSimilar = false;
-                });
-              } catch (e) {
-                setSheetState(() {
-                  errorSimilarMessage = '類似商品の検索中にエラー: ${e.toString()}';
-                  isLoadingSimilar = false;
-                });
-              }
-            }
-
-            // ボトムシート表示時にデータを1回だけ読み込む
-            if (isLoadingSimilar && similarProducts.isEmpty && errorSimilarMessage == null && !initialLoadStarted) {
-               initialLoadStarted = true; // ロード開始をマーク
-               loadSimilarProducts();
-            }
-            
-            return DraggableScrollableSheet(
-              expand: false, // falseでコンテンツの高さに合わせる
-              initialChildSize: 0.6, // 初期表示の高さ（画面の60%）
-              minChildSize: 0.3,     // 最小の高さ
-              maxChildSize: 0.9,     // 最大の高さ
-              builder: (_, scrollController) {
-                return Container(
+    return Scaffold(
+      backgroundColor: darkBackgroundColor, // 背景色をダークに
+      appBar: AppBar(
+        title: const Text('イエノモノ', style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.grey[850], // AppBarの背景色
+        elevation: 0, // AppBarの影を消してフラットに
+      ),
+      body: Column( // bodyをColumnでラップ
+        children: [
+          Expanded( // メインコンテンツをExpandedでラップして残りのスペースを埋める
+            child: Container( // 全体にグラデーション背景を適用
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [darkBackgroundColor, Colors.grey[850]!],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        '「${originalProduct.productName}」の類似商品',
-                        style: Theme.of(context).textTheme.titleLarge,
+                      Container(
+                        height: 300,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade700),
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.grey.shade800.withOpacity(0.5), // 少し透明に
+                        ),
+                        child: _imageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: Image.file(_imageFile!, fit: BoxFit.cover),
+                              )
+                            : Center(child: Text('画像を選択してください', style: TextStyle(color: Colors.grey[400]))),
                       ),
+                      const SizedBox(height: 16),
+                      
+                      if (_imageFile == null)
+                        ElevatedButton.icon(
+                          onPressed: _pickImage,
+                          icon: const Icon(Icons.photo_library),
+                          label: const Text('1. 画像を選択'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: darkPrimaryColor,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: _resetImageSelection,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('画像を再選択',style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18)),
+                          style: ElevatedButton.styleFrom(
+                            shadowColor: Colors.transparent,
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      
+                      Text('2. 検索対象のメーカーを選択', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[300])),
                       const SizedBox(height: 8),
-                      if (isLoadingSimilar)
-                        const Center(child: CircularProgressIndicator()),
-                      if (errorSimilarMessage != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Text(
-                            errorSimilarMessage!,
-                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
+                      _buildBrandSelection(), // スタイルはメソッド内で調整
+                      const SizedBox(height: 16),
+                      
+                      ElevatedButton.icon(
+                        onPressed: _imageFile == null || _isLoading ? null : _analyzeImage,
+                        icon: const Icon(Icons.analytics),
+                        label: const Text('3. この画像を解析'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent[400],
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+                      //Divider(color: Colors.grey[700]),
+
+                      if (_isLoading)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkPrimaryColor)),
+                                const SizedBox(height: 10),
+                                Text('AIが画像を解析中です...', style: TextStyle(color: Colors.grey[400])),
+                              ],
+                            ),
                           ),
                         ),
-                      if (!isLoadingSimilar && similarProducts.isEmpty && errorSimilarMessage == null)
-                        const Center(child: Text('類似商品が見つかりませんでした。')),
-                      if (!isLoadingSimilar && similarProducts.isNotEmpty)
-                        Expanded(
-                          child: ListView.builder(
-                            controller: scrollController, // DraggableScrollableSheetと連携
-                            itemCount: similarProducts.length,
-                            itemBuilder: (ctx, index) {
-                              final product = similarProducts[index];
-                              // 類似商品リストのアイテム表示 (メインリストと同様のCardを使用可能)
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(product.productName, style: Theme.of(context).textTheme.titleLarge),
-                                      const SizedBox(height: 4),
-                                      Chip(
-                                        label: Text(product.brand),
-                                        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.straighten, size: 18, color: Colors.grey.shade700),
-                                          const SizedBox(width: 8),
-                                          Text(product.size.toString(), style: Theme.of(context).textTheme.bodyMedium),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        product.description,
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade800),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      InkWell(
-                                        onTap: () async {
-                                          // 類似商品の商品名でGoogle検索
-                                          final Uri url = Uri.parse('https://www.google.com/search?q=${Uri.encodeComponent(product.productName)}');
-                                          if (await canLaunchUrl(url)) {
-                                            await launchUrl(url);
-                                          } else {
-                                            if (sheetContext.mounted) { // use sheetContext for ScaffoldMessenger
-                                              ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                                SnackBar(content: Text('URLを開けませんでした: ${url.toString()}')),
-                                              );
-                                            }
-                                          }
-                                        },
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.search, size: 18, color: Theme.of(context).colorScheme.primary),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  '「${product.productName}」をGoogleで検索',
-                                                  style: TextStyle(
-                                                    color: Theme.of(context).colorScheme.primary,
-                                                    decoration: TextDecoration.underline,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
+                      // _errorMessage と _products の表示ロジックは ResultsScreen に移動したため削除
+                      // if (_errorMessage != null) ...
+                      // if (!_isLoading && _products.isNotEmpty) ...
+                      // if (!_isLoading && _products.isEmpty && _imageFile != null && _errorMessage == null) ...
                     ],
                   ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('画像から商品を検索 (AI)'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                height: 300,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.shade200,
-                ),
-                child: _imageFile != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(11),
-                        child: Image.file(_imageFile!, fit: BoxFit.cover),
-                      )
-                    : const Center(child: Text('画像を選択してください')),
-              ),
-              const SizedBox(height: 16),
-              
-              ElevatedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.photo_library),
-                label: const Text('1. 画像を選択'),
-              ),
-              const SizedBox(height: 16),
-              
-              const Text('2. 検索対象のメーカーを選択', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              _buildBrandSelection(),
-              const SizedBox(height: 16),
-              
-              ElevatedButton.icon(
-                onPressed: _imageFile == null || _isLoading ? null : _analyzeImage,
-                icon: const Icon(Icons.analytics),
-                label: const Text('3. この画像を解析'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12)
                 ),
               ),
-              // const SizedBox(height: 8), // ボタン間のスペース // 元の類似商品検索ボタンは削除
-              // ElevatedButton.icon( // 元の類似商品検索ボタンは削除
-              //   onPressed: _products.isEmpty || _isLoading ? null : _searchSimilarProducts,
-              //   icon: const Icon(Icons.search_sharp),
-              //   label: const Text('類似商品を検索'),
-              //   style: ElevatedButton.styleFrom(
-              //     backgroundColor: Colors.orange,
-              //     foregroundColor: Colors.white,
-              //     padding: const EdgeInsets.symmetric(vertical: 12)
-              //   ),
-              // ),
-
-              const SizedBox(height: 24),
-              const Divider(),
-
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 10),
-                        Text('AIが画像を解析中です...'),
-                      ],
-                    ),
-                  ),
-                ),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    _errorMessage!, 
-                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              
-              if (!_isLoading && _products.isNotEmpty)
-                _buildResultsList(),
-              
-              if (!_isLoading && _products.isEmpty && _imageFile != null && _errorMessage == null) // _currentSearchTypeによる分岐は簡略化
-                const Center(child: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('解析が完了しました。対象商品が見つかりませんでした。'),
-                )),
-              // if (!_isLoading && _products.isEmpty && _currentSearchType == "similar" && _errorMessage == null) // この分岐は不要に
-              //    Center(child: Padding(
-              //     padding: const EdgeInsets.all(8.0),
-              //     child: Text('類似商品が見つかりませんでした。'),
-              //   ))
-            ],
+            ),
           ),
-        ),
+          // バナー広告のコンテナ
+          if (_bannerAd != null && _isBannerAdLoaded)
+            Container(
+              alignment: Alignment.center,
+              width: _bannerAd!.size.width.toDouble(),
+              height: _bannerAd!.size.height.toDouble(),
+              child: AdWidget(ad: _bannerAd!),
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildBrandSelection() {
+    final Color darkPrimaryColor = Colors.tealAccent[400]!;
+    final Color darkChipBackgroundColor = Colors.grey[800]!;
+    final Color darkChipSelectedColor = darkPrimaryColor.withOpacity(0.3);
+
     return Wrap(
       spacing: 8.0,
       runSpacing: 4.0,
       children: _availableBrands.map((brand) {
         return FilterChip(
-          label: Text(brand),
+          label: Text(brand, style: TextStyle(color: _selectedBrands[brand]! ? Colors.black : Colors.grey[300])),
           selected: _selectedBrands[brand] ?? false,
           onSelected: (bool selected) {
             setState(() {
               _selectedBrands[brand] = selected;
             });
           },
-          selectedColor: Theme.of(context).colorScheme.primaryContainer,
-          checkmarkColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: darkChipBackgroundColor,
+          selectedColor: darkChipSelectedColor,
+          checkmarkColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: _selectedBrands[brand]! ? darkPrimaryColor : Colors.grey[700]!),
+          ),
         );
       }).toList(),
     );
   }
 
-  Widget _buildResultsList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _products.length,
-      itemBuilder: (context, index) {
-        final product = _products[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(product.productName, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 4),
-                Chip(
-                  label: Text(product.brand),
-                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(Icons.straighten, size: 18, color: Colors.grey.shade700),
-                    const SizedBox(width: 8),
-                    Text(product.size.toString(), style: Theme.of(context).textTheme.bodyMedium),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  product.description,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade800),
-                ),
-                const SizedBox(height: 12),
-                InkWell(
-                  onTap: () async {
-                    // 商品名とメーカー名でGoogle検索
-                    final searchQuery = '${product.brand} ${product.productName}';
-                    final Uri url = Uri.parse('https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}');
-                    if (await canLaunchUrl(url)) {
-                      await launchUrl(url);
-                    } else {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('URLを開けませんでした: ${url.toString()}')),
-                        );
-                      }
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Row(
-                      children: [
-                        Icon(Icons.search, size: 18, color: Theme.of(context).colorScheme.primary), // アイコンを検索に変更
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '「${product.brand} ${product.productName}」をGoogleで検索', // テキストを変更
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              decoration: TextDecoration.underline,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.search_sharp),
-                    label: const Text('類似商品を検索'),
-                    onPressed: () {
-                      _showSimilarProductsBottomSheet(context, product);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  // _buildResultsList メソッドは ResultsScreen に移動したため削除
+  // Widget _buildResultsList() { ... }
+
+  // _showSimilarProductsBottomSheet メソッドは ResultsScreen に移動したため削除
+  // void _showSimilarProductsBottomSheet(BuildContext context, Product originalProduct) { ... }
 }
