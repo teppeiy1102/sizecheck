@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'procuctmodel.dart'; // Productモデルをインポート
-import 'dart:convert'; // jsonDecodeのため (もしAPIレスポンスを直接扱う場合)
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // dotenv
-import 'package:google_generative_ai/google_generative_ai.dart'; // GenerativeModel
-import 'dart:typed_data'; // Uint8List (もし画像データを扱う場合)
 import 'package:google_mobile_ads/google_mobile_ads.dart'; // AdMobパッケージをインポート
 import 'dart:io'; // Platform を使用するためにインポート
 

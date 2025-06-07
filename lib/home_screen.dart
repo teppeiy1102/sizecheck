@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart'; // 追加
 import 'package:google_mobile_ads/google_mobile_ads.dart'; // AdMobパッケージをインポート
 import 'procuctmodel.dart';
 import 'results_screen.dart'; // 新しい画面をインポート
@@ -30,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ImagePicker _picker = ImagePicker();
 
   // 選択可能なメーカーのリスト
-  final List<String> _availableBrands = ['無印良品', 'イケア', 'ニトリ'];
+  final List<String> _availableBrands = ['無印良品', 'イケア', 'ニトリ','seria','Francfranc','LOWYA','ベルメゾン','LOFT','東急ハンズ'];
   // 選択されたメーカーを管理するMap
   late Map<String, bool> _selectedBrands;
 
@@ -136,7 +135,8 @@ $brandListString
 
 類似商品を、その商品一つ一つについて、以下の情報を厳密なJSON形式でリストとして返してください。
 複数の商品が該当する場合は、それぞれの商品情報をリストに含めてください。
-各メーカー5件ずつ提案してください。
+全部で５件以内に提案してください。
+
 
 出力形式のルール:
 - ルート要素は `products` というキーを持つJSON配列（リスト）とします。
@@ -424,7 +424,7 @@ $brandListString
                         icon: const Icon(Icons.analytics),
                         label: const Text('3. この画像を解析'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.greenAccent[400],
+                          backgroundColor: const Color.fromARGB(255, 0, 196, 230),
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -471,7 +471,7 @@ $brandListString
   }
 
   Widget _buildBrandSelection() {
-    final Color darkPrimaryColor = Colors.tealAccent[400]!;
+    final Color darkPrimaryColor = const Color.fromARGB(255, 25, 0, 250)!;
     final Color darkChipBackgroundColor = Colors.grey[800]!;
     final Color darkChipSelectedColor = darkPrimaryColor.withOpacity(0.3);
 
