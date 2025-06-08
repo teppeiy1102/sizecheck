@@ -1,5 +1,3 @@
-// lib/screens/home_screen.dart
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -93,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return """
 あなたは、画像から家具や雑貨を特定する専門家です。
-提供された画像の中に、以下のメーカーの商品があるか検索してください。
+提供された画像の中に、以下のメーカーの商品があるか丁寧にくまなく検索してください。
 
 対象メーカー:
 $brandListString
@@ -113,6 +111,12 @@ $brandListString
     - `depth`: 奥行きをcm単位の数値で指定します。不明な場合は、類似商品から推測されるサイズを数値で指定してください。
   - `description`: 商品の特徴や説明を文字列で指定します。
   - `product_url`: 商品の公式ページまたは販売ページのURLを文字列で指定します。不明な場合は空文字列 "" としてください。
+  - `bounding_box`: 商品が画像内で占める領域を示すバウンディングボックス情報を格納するJSONオブジェクトです。座標は画像の左上を(0,0)とします。
+    - `x1`: バウンディングボックスの左上のx座標を整数で指定します。
+    - `y1`: バウンディングボックスの左上のy座標を整数で指定します。
+    - `x2`: バウンディングボックスの右下のx座標を整数で指定します。
+    - `y2`: バウンディングボックスの右下のy座標を整数で指定します。
+    不明な場合はこのキー自体を省略するか、各座標に0を設定してください。
 - 画像内に該当する商品が一つも見つからなかった場合は、空の配列 `{"products": []}` を返してください。
 - JSONの前後に、他の説明文や挨拶などを一切含めないでください。
 """;
@@ -242,6 +246,7 @@ $brandListString
               selectedBrands: _selectedBrands, // ResultsScreenに渡す
               brandTopPageUrls: _brandTopPageUrls, // ResultsScreenに渡す
               fetchSimilarProductsApiCallback: _fetchSimilarProductsApi, // ResultsScreenに渡す
+              originalImageFile: _imageFile, // ★★★ 追加: 元の画像ファイルを渡す ★★★
             ),
           ),
         );
@@ -262,6 +267,7 @@ $brandListString
               selectedBrands: _selectedBrands,
               brandTopPageUrls: _brandTopPageUrls,
               fetchSimilarProductsApiCallback: _fetchSimilarProductsApi,
+              originalImageFile: _imageFile, // ★★★ 追加: 元の画像ファイルを渡す ★★★
             ),
           ),
         );

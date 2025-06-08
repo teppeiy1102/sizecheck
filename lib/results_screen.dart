@@ -3,6 +3,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'procuctmodel.dart'; // Productモデルをインポート
 import 'package:google_mobile_ads/google_mobile_ads.dart'; // AdMobパッケージをインポート
 import 'dart:io'; // Platform を使用するためにインポート
+import 'dart:typed_data'; // Uint8Listのため
+import 'dart:ui' as ui; // ui.Image, ui.Canvasのため
 
 
 class ResultsScreen extends StatefulWidget {
@@ -10,8 +12,8 @@ class ResultsScreen extends StatefulWidget {
   final String? errorMessage;
   final Map<String, bool> selectedBrands;
   final Map<String, String> brandTopPageUrls;
-  // _fetchSimilarProductsApi をコールバックとして受け取る
   final Future<List<Product>> Function(Product, List<String>) fetchSimilarProductsApiCallback;
+  final File? originalImageFile; // ★★★ 追加: 元の画像ファイルを受け取る ★★★
 
 
   const ResultsScreen({
@@ -21,6 +23,7 @@ class ResultsScreen extends StatefulWidget {
     required this.selectedBrands,
     required this.brandTopPageUrls,
     required this.fetchSimilarProductsApiCallback,
+    this.originalImageFile, // ★★★ 追加 ★★★
   });
 
   @override
@@ -227,6 +230,50 @@ class _ResultsScreenState extends State<ResultsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.originalImageFile != null && product.boundingBox != null)
+                  FutureBuilder<ui.Image>(
+                    future: _loadUiImage(widget.originalImageFile!),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data != null) {
+                        final ui.Image originalUiImage = snapshot.data!;
+                        final BoundingBox bb = product.boundingBox!;
+                        // バウンディングボックスの座標が画像の範囲内であることを確認
+                        if (bb.x1 < originalUiImage.width && bb.y1 < originalUiImage.height &&
+                            bb.x2 <= originalUiImage.width && bb.y2 <= originalUiImage.height &&
+                            bb.x1 < bb.x2 && bb.y1 < bb.y2) {
+                          return SizedBox(
+                            width: bb.width.toDouble(), // 切り抜き後の表示幅
+                            height: bb.height.toDouble(), // 切り抜き後の表示高さ
+                            child: ClipRect( // ここでは単純なClipRectを使用。より高度な表示にはCustomPaintを推奨
+                              child: CustomPaint(
+                                painter: CroppedImagePainter(
+                                  image: originalUiImage,
+                                  cropRect: Rect.fromLTRB(
+                                    bb.x1.toDouble(),
+                                    bb.y1.toDouble(),
+                                    bb.x2.toDouble(),
+                                    bb.y2.toDouble(),
+                                  ),
+                                ),
+                                child: Container(
+                                  width: bb.width.toDouble(),
+                                  height: bb.height.toDouble(),
+                                ),
+                              ),
+                            ),
+                          );
+                        } else {
+                           // バウンディングボックスが無効な場合はプレースホルダーなどを表示
+                           return const SizedBox(height: 8, child: Text("座標エラー", style: TextStyle(color: Colors.redAccent)));
+                        }
+                      } else if (snapshot.hasError) {
+                        return const SizedBox(height: 8, child: Text("画像読込エラー", style: TextStyle(color: Colors.redAccent)));
+                      }
+                      return const SizedBox(height: 50, child: Center(child: CircularProgressIndicator())); // 画像読み込み中
+                    },
+                  ),
+                if (widget.originalImageFile != null && product.boundingBox != null)
+                  const SizedBox(height: 12),
                 Text(product.productName, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)),
                 const SizedBox(height: 4),
                 Chip(
@@ -500,5 +547,43 @@ class _ResultsScreenState extends State<ResultsScreen> {
         );
       },
     );
+  }
+
+  Future<ui.Image> _loadUiImage(File file) async {
+    final Uint8List bytes = await file.readAsBytes();
+    final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+    final ui.FrameInfo frameInfo = await codec.getNextFrame();
+    return frameInfo.image;
+  }
+}
+
+// CustomPaintで画像の一部を描画するためのPainter
+class CroppedImagePainter extends CustomPainter {
+  final ui.Image image;
+  final Rect cropRect;
+
+  CroppedImagePainter({required this.image, required this.cropRect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint();
+    // canvas.drawImageRect(image, cropRect, Rect.fromLTWH(0, 0, size.width, size.height), paint);
+    // 描画先のRectは、CustomPaintウィジェットのサイズに合わせる
+    // また、cropRectのサイズと描画先のサイズのアスペクト比が異なる場合、画像が歪む可能性がある
+    // ここでは、cropRectのサイズをそのまま描画先のサイズとして使うことを想定
+    // 必要に応じて、size (CustomPaintのサイズ) と cropRect.size を比較して調整する
+    
+    // 元画像のcropRect部分を、Canvasの(0,0)からcropRectの幅・高さで描画
+    canvas.drawImageRect(
+        image,
+        cropRect,
+        Rect.fromLTWH(0, 0, cropRect.width, cropRect.height), // 描画先の矩形
+        paint
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CroppedImagePainter oldDelegate) {
+    return image != oldDelegate.image || cropRect != oldDelegate.cropRect;
   }
 }
