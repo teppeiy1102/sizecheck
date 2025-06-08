@@ -231,47 +231,47 @@ class _ResultsScreenState extends State<ResultsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (widget.originalImageFile != null && product.boundingBox != null)
-                  FutureBuilder<ui.Image>(
-                    future: _loadUiImage(widget.originalImageFile!),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data != null) {
-                        final ui.Image originalUiImage = snapshot.data!;
-                        final BoundingBox bb = product.boundingBox!;
-                        // バウンディングボックスの座標が画像の範囲内であることを確認
-                        if (bb.x1 < originalUiImage.width && bb.y1 < originalUiImage.height &&
-                            bb.x2 <= originalUiImage.width && bb.y2 <= originalUiImage.height &&
-                            bb.x1 < bb.x2 && bb.y1 < bb.y2) {
-                          return SizedBox(
-                            width: bb.width.toDouble(), // 切り抜き後の表示幅
-                            height: bb.height.toDouble(), // 切り抜き後の表示高さ
-                            child: ClipRect( // ここでは単純なClipRectを使用。より高度な表示にはCustomPaintを推奨
-                              child: CustomPaint(
-                                painter: CroppedImagePainter(
-                                  image: originalUiImage,
-                                  cropRect: Rect.fromLTRB(
-                                    bb.x1.toDouble(),
-                                    bb.y1.toDouble(),
-                                    bb.x2.toDouble(),
-                                    bb.y2.toDouble(),
-                                  ),
-                                ),
-                                child: Container(
-                                  width: bb.width.toDouble(),
-                                  height: bb.height.toDouble(),
-                                ),
-                              ),
-                            ),
-                          );
-                        } else {
-                           // バウンディングボックスが無効な場合はプレースホルダーなどを表示
-                           return const SizedBox(height: 8, child: Text("座標エラー", style: TextStyle(color: Colors.redAccent)));
-                        }
-                      } else if (snapshot.hasError) {
-                        return const SizedBox(height: 8, child: Text("画像読込エラー", style: TextStyle(color: Colors.redAccent)));
-                      }
-                      return const SizedBox(height: 50, child: Center(child: CircularProgressIndicator())); // 画像読み込み中
-                    },
-                  ),
+                //  FutureBuilder<ui.Image>(
+                //    future: _loadUiImage(widget.originalImageFile!),
+                //    builder: (context, snapshot) {
+                //      if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data != null) {
+                //        final ui.Image originalUiImage = snapshot.data!;
+                //        final BoundingBox bb = product.boundingBox!;
+                //        // バウンディングボックスの座標が画像の範囲内であることを確認
+                //        if (bb.x1 < originalUiImage.width && bb.y1 < originalUiImage.height &&
+                //            bb.x2 <= originalUiImage.width && bb.y2 <= originalUiImage.height &&
+                //            bb.x1 < bb.x2 && bb.y1 < bb.y2) {
+                //          return SizedBox(
+                //            width: bb.width.toDouble(), // 切り抜き後の表示幅
+                //            height: bb.height.toDouble(), // 切り抜き後の表示高さ
+                //            child: ClipRect( // ここでは単純なClipRectを使用。より高度な表示にはCustomPaintを推奨
+                //              child: CustomPaint(
+                //                painter: CroppedImagePainter(
+                //                  image: originalUiImage,
+                //                  cropRect: Rect.fromLTRB(
+                //                    bb.x1.toDouble(),
+                //                    bb.y1.toDouble(),
+                //                    bb.x2.toDouble(),
+                //                    bb.y2.toDouble(),
+                //                  ),
+                //                ),
+                //                child: Container(
+                //                  width: bb.width.toDouble(),
+                //                  height: bb.height.toDouble(),
+                //                ),
+                //              ),
+                //            ),
+                //          );
+                //        } else {
+                //           // バウンディングボックスが無効な場合はプレースホルダーなどを表示
+                //           return const SizedBox(height: 8, child: Text("座標エラー", style: TextStyle(color: Colors.redAccent)));
+                //        }
+                //      } else if (snapshot.hasError) {
+                //        return const SizedBox(height: 8, child: Text("画像読込エラー", style: TextStyle(color: Colors.redAccent)));
+                //      }
+                //      return const SizedBox(height: 50, child: Center(child: CircularProgressIndicator())); // 画像読み込み中
+                //    },
+                //  ),
                 if (widget.originalImageFile != null && product.boundingBox != null)
                   const SizedBox(height: 12),
                 Text(product.productName, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)),
