@@ -1,4 +1,11 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.sizecheck">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- APIレベル33以上をターゲットにする場合は、より詳細なメディア権限を使用できます -->
+    <!-- <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" /> -->
+
     <application
         android:label="sizecheck"
         android:name="${applicationName}"

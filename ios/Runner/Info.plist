@@ -52,5 +52,9 @@
         <string>https</string>
         <string>http</string>
     </array>
+    <key>NSCameraUsageDescription</key>
+    <string>商品を撮影して検索するためにカメラへのアクセスが必要です。</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>端末の画像を選択して商品を検索するために写真ライブラリへのアクセスが必要です。</string>
 </dict>
 </plist>

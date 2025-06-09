@@ -72,22 +72,26 @@ class ProductSize {
   final num? width;
   final num? height;
   final num? depth;
+  final double? volume; // 容量 (L単位など)
+  final String? apparelSize; // S/M/L/Freeなど
 
-  ProductSize({required this.width, required this.height, required this.depth});
+  ProductSize({
+    this.width,
+    this.height,
+    this.depth,
+    this.volume,
+    this.apparelSize,
+  });
 
   // JSONからProductSizeオブジェクトを生成するファクトリコンストラクタ
-  factory ProductSize.fromJson(dynamic json) { // Changed from Map<String, dynamic> to dynamic
-    if (json is Map<String, dynamic>) {
-      return ProductSize(
-        width: json['width'] as num?,
-        height: json['height'] as num?,
-        depth: json['depth'] as num?,
-      );
-    } else {
-      // Handle unexpected format, e.g., return a default or throw a specific error
-      // For now, returning a ProductSize with null dimensions.
-      return ProductSize(width: null, height: null, depth: null);
-    }
+  factory ProductSize.fromJson(Map<String, dynamic> json) {
+    return ProductSize(
+      width: (json['width'] as num?)?.toDouble() ?? 0.0,
+      height: (json['height'] as num?)?.toDouble() ?? 0.0,
+      depth: (json['depth'] as num?)?.toDouble() ?? 0.0,
+      volume: (json['volume'] as num?)?.toDouble(), // volumeを追加
+      apparelSize: json['apparel_size'] as String?, // apparel_sizeを追加
+    );
   }
 
   @override
@@ -95,7 +99,9 @@ class ProductSize {
     final w = width != null ? '横${width}cm' : '';
     final h = height != null ? '高${height}cm' : '';
     final d = depth != null ? '奥${depth}cm' : '';
-    final parts = [w, h, d].where((s) => s.isNotEmpty).toList();
-    return parts.isNotEmpty ? parts.join(' x ') : 'サイズ情報なし';
+    final v = volume != null ? '容量${volume}L' : ''; // 追加
+    final a = apparelSize != null ? 'サイズ:${apparelSize}' : ''; // 追加
+    final parts = [w, h, d, v, a].where((s) => s.isNotEmpty).toList();
+    return parts.isNotEmpty ? parts.join(' | ') : 'サイズ情報なし';
   }
 }

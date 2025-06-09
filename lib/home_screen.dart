@@ -12,6 +12,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'procuctmodel.dart';
 import 'results_screen.dart';
 
+enum SearchGenre { lifestyle, apparel, outdoor, bag, sports, sneakers }
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -33,12 +35,96 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _errorMessage;
 
   final ImagePicker _picker = ImagePicker();
-  final List<String> _availableBrands = ['無印良品', 'イケア', 'ニトリ','seria','Francfranc','LOWYA','ベルメゾン','LOFT','東急ハンズ'];
+
+  SearchGenre _selectedGenre = SearchGenre.lifestyle; // 初期ジャンル
+
+  final List<String> _availableLifestyleBrands = ['無印良品', 'イケア', 'ニトリ','seria','Francfranc','LOWYA','ベルメゾン','LOFT','東急ハンズ'];
+  final List<String> _availableApparelBrands = ['ユニクロ', 'GU', 'ZARA', 'H&M', 'BEAMS', 'しまむら', 'Right-on', 'GAP', 'アーバンリサーチ', 'ユナイテッドアローズ', 'ナノユニバース', 'ジャーナルスタンダード']; // アパレルブランドの例
+  final List<String> _availableOutdoorBrands = [
+    'コールマン', 'スノーピーク', 'ロゴス', 'モンベル', 'パタゴニア', 'ザ・ノース・フェイス',
+    'キャプテンスタッグ', 'DOD', 'ヘリノックス', 'チャムス', 'マムート', 'ミレー'
+  ]; // アウトドアブランドの例
+  final List<String> _availableBagBrands = [
+    'ポーター', 'マンハッタンポーテージ', 'グレゴリー', 'アークテリクス', 'ミステリーランチ',
+    'ケルティ', 'オスプレー', 'カリマー', 'ブリーフィング', 'トゥミ'
+  ]; // バッグブランドの例
+  final List<String> _availableSportsBrands = [
+    'ナイキ', 'アディダス', 'プーマ', 'アシックス', 'ミズノ',
+    'アンダーアーマー', 'ニューバランス', 'デサント', 'ルコックスポルティフ', 'ヨネックス'
+  ]; // スポーツブランドの例
+  final List<String> _availableSneakersBrands = [
+    'ナイキ', 'アディダス', 'ニューバランス', 'コンバース', 'バンズ',
+    'リーボック', 'プーマ', 'アシックス', 'オニツカタイガー', 'サッカニー'
+  ]; // スニーカーブランドの例
+  late List<String> _currentAvailableBrands; // 現在選択中のジャンルのブランドリスト
   late Map<String, bool> _selectedBrands;
+
   final Map<String, String> _brandTopPageUrls = {
+    // 生活雑貨
     '無印良品': 'https://www.muji.com/jp/ja/store',
     'イケア': 'https://www.ikea.com/jp/ja/',
     'ニトリ': 'https://www.nitori-net.jp/ec/',
+    'seria': 'https://www.seria-group.com/',
+    'Francfranc': 'https://francfranc.com/',
+    'LOWYA': 'https://www.low-ya.com/',
+    'ベルメゾン': 'https://www.bellemaison.jp/',
+    'LOFT': 'https://www.loft.co.jp/store/',
+    '東急ハンズ': 'https://hands.net/',
+    // アパレル
+    'ユニクロ': 'https://www.uniqlo.com/jp/ja/',
+    'GU': 'https://www.gu-global.com/jp/ja/',
+    'ZARA': 'https://www.zara.com/jp/',
+    'H&M': 'https://www2.hm.com/ja_jp/index.html',
+    'BEAMS': 'https://www.beams.co.jp/',
+    'しまむら': 'https://www.shimamura.gr.jp/shimamura/',
+    'Right-on': 'https://right-on.co.jp/',
+    'GAP': 'https://www.gap.co.jp/',
+    'アーバンリサーチ': 'https://www.urban-research.jp/',
+    'ユナイテッドアローズ': 'https://store.united-arrows.co.jp/',
+    'ナノユニバース': 'https://store.nanouniverse.jp/',
+    'ジャーナルスタンダード': 'https://baycrews.jp/brand/detail/journalstandard',
+    // アウトドア
+    'コールマン': 'https://www.coleman.co.jp/',
+    'スノーピーク': 'https://www.snowpeak.co.jp/',
+    'ロゴス': 'https://www.logos.ne.jp/',
+    'モンベル': 'https://www.montbell.jp/',
+    'パタゴニア': 'https://www.patagonia.jp/',
+    'ザ・ノース・フェイス': 'https://www.goldwin.co.jp/tnf/',
+    'キャプテンスタッグ': 'https://www.captainstag.net/',
+    'DOD': 'https://www.dod.camp/',
+    'ヘリノックス': 'https://www.helinox.jp/',
+    'チャムス': 'https://www.chums.jp/',
+    'マムート': 'https://www.mammut.jp/',
+    'ミレー': 'https://www.millet.jp/',
+    // バッグ
+    'ポーター': 'https://www.yoshidakaban.com/product/search_result.html?p_series=&p_lisence_id=1&p_keywd=', // PORTER (吉田カバン)
+    'マンハッタンポーテージ': 'https://www.manhattanportage.co.jp/',
+    'グレゴリー': 'https://www.gregory.jp/',
+    'アークテリクス': 'https://arcteryx.jp/',
+    'ミステリーランチ': 'https://www.mysteryranch.jp/',
+    'ケルティ': 'https://www.kelty.co.jp/',
+    'オスプレー': 'https://www.osprey.com/jp/ja/',
+    'カリマー': 'https://www.karrimor.jp/',
+    'ブリーフィング': 'https://www.briefing-usa.com/',
+    'トゥミ': 'https://www.tumi.co.jp/',
+    // スポーツ
+    'ナイキ': 'https://www.nike.com/jp/',
+    'アディダス': 'https://shop.adidas.jp/',
+    'プーマ': 'https://jp.puma.com/',
+    'アシックス': 'https://www.asics.com/jp/ja-jp/',
+    'ミズノ': 'https://jpn.mizuno.com/',
+    'アンダーアーマー': 'https://www.underarmour.co.jp/',
+    'ニューバランス': 'https://shop.newbalance.jp/',
+    'デサント': 'https://store.descente.co.jp/',
+    'ルコックスポルティフ': 'https://store.descente.co.jp/lecoqsportif/',
+    'ヨネックス': 'https://www.yonex.co.jp/',
+    // スニーカー
+    'コンバース': 'https://converse.co.jp/',
+    'バンズ': 'https://www.vans.co.jp/',
+    'リーボック': 'https://reebok.jp/',
+    'オニツカタイガー': 'https://www.onitsukatiger.com/jp/ja-jp/',
+    'サッカニー': 'https://www.saucony-japan.com/',
+    // ナイキ、アディダス、ニューバランス、プーマ、アシックスはスポーツと重複するため、URLは共通
   };
 
   BannerAd? _bannerAd;
@@ -50,8 +136,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedBrands = {for (var brand in _availableBrands) brand: true};
+    _updateBrandSelectionForGenre(_selectedGenre);
     _loadBannerAd();
+  }
+
+  void _updateBrandSelectionForGenre(SearchGenre genre) {
+    setState(() {
+      _selectedGenre = genre;
+      if (_selectedGenre == SearchGenre.lifestyle) {
+        _currentAvailableBrands = List.from(_availableLifestyleBrands);
+      } else if (_selectedGenre == SearchGenre.apparel) {
+        _currentAvailableBrands = List.from(_availableApparelBrands);
+      } else if (_selectedGenre == SearchGenre.outdoor) {
+        _currentAvailableBrands = List.from(_availableOutdoorBrands);
+      } else if (_selectedGenre == SearchGenre.bag) {
+        _currentAvailableBrands = List.from(_availableBagBrands);
+      } else if (_selectedGenre == SearchGenre.sports) {
+        _currentAvailableBrands = List.from(_availableSportsBrands);
+      } else if (_selectedGenre == SearchGenre.sneakers) {
+        _currentAvailableBrands = List.from(_availableSneakersBrands);
+      }
+      // 常にすべてのブランドを選択状態にする
+      _selectedBrands = {for (var brand in _currentAvailableBrands) brand: true};
+    });
   }
 
   void _loadBannerAd() {
@@ -88,12 +195,33 @@ class _HomeScreenState extends State<HomeScreen> {
   String _generatePromptForRegion(List<String> selectedBrands /*, Rect imageRegion, Size originalImageSize */) {
     final brandListString = selectedBrands.map((b) => '- $b').join('\n');
     // 矩形が描画された画像を渡すため、座標のテキスト情報は削除
+    String genreSpecificPromptPart;
+    switch (_selectedGenre) {
+      case SearchGenre.lifestyle:
+        genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にある生活雑貨（家具、インテリア小物、キッチン用品、収納グッズなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.apparel:
+        genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にある衣料品（トップス、ボトムス、アウター、ワンピース、ファッション小物など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.outdoor:
+        genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にあるアウトドア用品（テント、寝袋、ランタン、チェア、クーラーボックス、登山用品など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.bag:
+        genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にあるバッグ類（リュックサック、トートバッグ、ショルダーバッグ、ウエストポーチなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.sports:
+        genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にあるスポーツ用品（ウェア、シューズ、ボール、ラケット、トレーニング器具など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.sneakers:
+        genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にあるスニーカーに似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+    }
+
     return """
 あなたは、画像から商品を特定する専門家です。
-提供された画像に赤い枠で示されている領域にある商品に似ている商品や、
-関連する商品を対象メーカーから探し出してください。
+$genreSpecificPromptPart
 赤い枠内の商品のみを対象とし、指定されたメーカーの製品を探してください。
-各メーカーから一つは必ず含めてください。
+もっとも適切と思われる商品1つだけでいいですが、同じメーカーであれば複数でも構いません。
 
 対象メーカー:
 $brandListString
@@ -107,7 +235,7 @@ $brandListString
 - 各商品オブジェクトは、以下のキーを含みます:
   - `product_name`: 商品名を文字列で指定します。そのメーカーの呼称を使用してください。
   - `brand`: メーカー名（対象メーカーのいずれか）を文字列で指定します。
-  - `size`: サイズ情報を格納するJSONオブジェクト（width, height, depthをcm単位の数値で）。
+  - `size`: サイズ情報を格納するJSONオブジェクト（width, height, depthをcm単位の数値で、アパレルの場合はS/M/L/Freeや数値、バッグの場合は容量(L)や寸法、または該当しない場合は空オブジェクト {}）。
   - `description`: 商品の特徴や説明を文字列で指定します。
   - `product_url`: 商品の公式ページまたは販売ページのURLを文字列で指定します。不明な場合は空文字列 ""。
   - `bounding_box`: 商品が画像内で占める領域を示すバウンディングボックス情報（x1, y1, x2, y2を整数で）。**これは元画像全体における絶対座標で返してください。**
@@ -117,8 +245,8 @@ $brandListString
 """;
   }
 
-  Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+  Future<void> _pickImage(ImageSource source) async {
+    final XFile? pickedFile = await _picker.pickImage(source: source);
     if (pickedFile != null) {
       final imageBytes = await pickedFile.readAsBytes();
       final codec = await ui.instantiateImageCodec(imageBytes);
@@ -275,7 +403,7 @@ $brandListString
         // ユーザーがキャンセルした場合、またはダイアログが予期せず閉じられた場合
         if (continueAnalysis == null || !continueAnalysis) {
           setState(() {
-            _isLoading = false; // ローディングを解除
+            _isLoading = false;
           });
           return; // 解析処理を中断
         }
@@ -418,22 +546,82 @@ $brandListString
     // _generateSimilarProductPrompt は変更なし
   String _generateSimilarProductPrompt(Product originalProduct, List<String> selectedBrands) {
     final brandListString = selectedBrands.map((b) => '- $b').join('\n');
+    String genreSpecificPromptPart;
+    String sizeInfo;
+
+    switch (_selectedGenre) {
+      case SearchGenre.lifestyle:
+        genreSpecificPromptPart = "以下の生活雑貨（家具、インテリア小物、キッチン用品、収納グッズなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0)
+            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
+                ? "- サイズ: ${originalProduct.size.toString()}"
+                : "- サイズ: 情報なし";
+        break;
+      case SearchGenre.apparel:
+        genreSpecificPromptPart = "以下の衣料品（トップス、ボトムス、アウター、ワンピース、ファッション小物など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
+            ? "- サイズ: ${originalProduct.size.apparelSize}"
+            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
+                ? "- サイズ: ${originalProduct.size.toString()}" // フォールバックとして
+                : "- サイズ: 情報なし";
+        break;
+      case SearchGenre.outdoor:
+        genreSpecificPromptPart = "以下のアウトドア用品（テント、寝袋、ランタン、チェア、クーラーボックス、登山用品など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+        // アウトドア用品のサイズ情報は多様なので、descriptionに含めるか、専用のフィールドをProductSizeに追加することを検討
+        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0) // 例: テントや大型ギア
+            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+            : (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // 例: バックパックの容量
+                ? "- 容量: ${originalProduct.size.volume}L"
+                : "- サイズ: ${originalProduct.description.contains('サイズ') ? '商品説明参照' : '情報なし'}"; // descriptionにサイズ情報があれば参照
+        break;
+      case SearchGenre.bag:
+        genreSpecificPromptPart = "以下のバッグ類（リュックサック、トートバッグ、ショルダーバッグ、ウエストポーチなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+        sizeInfo = (originalProduct.size.volume != null && originalProduct.size.volume! > 0)
+            ? "- 容量: ${originalProduct.size.volume}L"
+            : (originalProduct.size.width! > 0 && originalProduct.size.height! > 0)
+                ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+                : "- サイズ: 情報なし";
+        break;
+      case SearchGenre.sports:
+        genreSpecificPromptPart = "以下のスポーツ用品（ウェア、シューズ、ボール、ラケット、トレーニング器具など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+        // スポーツ用品のサイズは多岐にわたるため、ウェアならapparelSize、シューズなら数値、用具なら寸法など
+        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
+            ? "- サイズ: ${originalProduct.size.apparelSize}" // ウェアの場合
+            : (originalProduct.size.width! > 0 && originalProduct.size.height! > 0) // シューズや用具の寸法
+                ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+                : (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // ボールなどの容量や、特定の数値サイズ
+                    ? "- サイズ/容量: ${originalProduct.size.volume}" // volumeを汎用的な数値サイズとしても使う
+                    : "- サイズ: 情報なし";
+        break;
+      case SearchGenre.sneakers:
+        genreSpecificPromptPart = "以下のスニーカーの情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+        // スニーカーのサイズは数値 (cm or US/UK/EU size)
+        sizeInfo = (originalProduct.size.width! > 0) // width を靴のサイズとして代用 (cm)
+            ? "- サイズ: ${originalProduct.size.width}cm"
+            : (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty) // apparel_size をUS/UK/EUサイズとして代用
+                ? "- サイズ: ${originalProduct.size.apparelSize}"
+                : "- サイズ: 情報なし";
+        break;
+    }
+
+
     return """
-あなたは、家具や雑貨の類似商品を提案する専門家です。
-以下の商品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。
+あなたは、家具や雑貨、アパレル、アウトドア用品、バッグの類似商品を提案する専門家です。
+$genreSpecificPromptPart
 
 元の商品情報:
 - 商品名: ${originalProduct.productName}
 - ブランド: ${originalProduct.brand}
 - 説明: ${originalProduct.description}
-- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm
+$sizeInfo
 
 検索対象メーカー:
 $brandListString
 
 類似商品を、その商品一つ一つについて、以下の情報を厳密なJSON形式でリストとして返してください。
 複数の商品が該当する場合は、それぞれの商品情報をリストに含めてください。
-全部で５件以内に提案してください。
+各メーカー1件ずつ提案してください。
 
 
 出力形式のルール:
@@ -442,13 +630,15 @@ $brandListString
 - 各商品オブジェクトは、以下のキーを含みます:
   - `product_name`: 商品名を文字列で指定します。
   - `brand`: メーカー名（検索対象メーカーのいずれか）を文字列で指定します。
-  - `size`: サイズ情報を格納するJSONオブジェクトです。
-    - `width`: 横幅をcm単位の数値で指定します。
-    - `height`: 高さをcm単位の数値で指定します。
-    - `depth`: 奥行きをcm単位の数値で指定します。
+  - `size`: サイズ情報を格納するJSONオブジェクトです（生活雑貨の場合はwidth, height, depthをcm単位の数値で、アパレルの場合はS/M/L/Freeや数値、アウトドア用品やバッグの場合は容量(L)や寸法、または該当しない場合は空オブジェクト {}）。
+    - `width`: 横幅をcm単位の数値で指定します。(該当しなければ 0 または省略)
+    - `height`: 高さをcm単位の数値で指定します。(該当しなければ 0 または省略)
+    - `depth`: 奥行きをcm単位の数値で指定します。(該当しなければ 0 または省略)
+    - `apparel_size`: (アパレルの場合) S/M/L/Freeなどの文字列、または数値。該当しない場合は省略可。
+    - `volume`: (バッグや一部アウトドア用品の場合) 容量をL(リットル)単位の数値で指定します。該当しない場合は省略可。
   - `description`: 商品の特徴や説明を文字列で指定します。
   - `product_url`: 商品の公式ページまたは販売ページのURLを文字列で指定します。不明な場合は空文字列 "" としてください。
-  - `emoji`: その商品を最もよく表す絵文字を1つ文字列で指定します。例: "🛋️", "👕", "📚"。適切な絵文字が見つからない場合は空文字列 "" としてください。
+  - `emoji`: その商品を最もよく表す絵文字を1つ文字列で指定します。例: "🛋️", "👕", "⛺", "🎒", "⚽", "👟"。適切な絵文字が見つからない場合は空文字列 "" としてください。
 - 該当する類似商品が一つも見つからなかった場合は、空の配列 `{"products": []}` を返してください。
 - JSONの前後に、他の説明文や挨拶などを一切含めないでください。
 """;
@@ -465,7 +655,7 @@ $brandListString
       backgroundColor: darkBackgroundColor,
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('イエノモノ', style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold)),
+        title: const Text('ニタモノ検索', style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold)),
         backgroundColor: Colors.grey[850],
         elevation: 0,
       ),
@@ -511,7 +701,7 @@ $brandListString
                                   ElevatedButton.icon(
                                     icon: const Icon(Icons.image_search),
                                     label: const Text('画像を選択'),
-                                    onPressed: _pickImage,
+                                    onPressed: () => _showImageSourceDialog(context),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: darkPrimaryColor,
                                       foregroundColor: Colors.white,
@@ -627,12 +817,13 @@ $brandListString
                               Expanded(
                                 child: ElevatedButton.icon(
                                   icon: const Icon(Icons.refresh, size: 18),
-                                  label: const Text('画像を選び直す'),
+                                  label: const Text('画像をクリア'),
                                   onPressed: _resetImageSelection,
                                   style: ElevatedButton.styleFrom(
+
                                     backgroundColor: Colors.grey[700],
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(vertical: 20,horizontal: 5),
                                   ),
                                 ),
                               ),
@@ -641,12 +832,12 @@ $brandListString
                                 flex: 2,
                                 child: ElevatedButton.icon(
                                   icon: const Icon(Icons.science_outlined),
-                                  label: const Text('AIで解析'),
+                                  label: const Text('AIで商品を特定'),
                                   onPressed: (_isLoading || _drawnRect == null) ? null : _analyzeMarkedRegion,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: (_drawnRect != null) ? darkPrimaryColor : Colors.grey[600],
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(vertical: 20),
                                     textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   ),
                                 ),
@@ -657,6 +848,120 @@ $brandListString
                         
                         const SizedBox(height: 30),
                         
+                        // ジャンル選択エリア
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                          decoration: BoxDecoration(
+                            color: darkCardColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '検索ジャンル:',
+                                style: TextStyle(
+                                  color: Colors.grey[300],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap( // Rowの代わりにWrapを使用して、画面幅に応じて折り返すようにする
+                                spacing: 8.0, // 各チップ間の水平スペース
+                                runSpacing: 8.0, // 行間の垂直スペース
+                                children: [
+                                  ChoiceChip(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                                    label: Text('生活雑貨', style: TextStyle(color: _selectedGenre == SearchGenre.lifestyle ? Colors.black : Colors.grey[300])),
+                                    selected: _selectedGenre == SearchGenre.lifestyle,
+                                    onSelected: (selected) {
+                                      if (selected) _updateBrandSelectionForGenre(SearchGenre.lifestyle);
+                                    },
+                                    selectedColor: darkPrimaryColor.withOpacity(0.7),
+                                    backgroundColor: Colors.grey[800],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                      side: BorderSide(color: _selectedGenre == SearchGenre.lifestyle ? darkPrimaryColor : Colors.grey[700]!),
+                                    ),
+                                  ),
+                                  ChoiceChip(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                                    label: Text('アパレル', style: TextStyle(color: _selectedGenre == SearchGenre.apparel ? Colors.black : Colors.grey[300])),
+                                    selected: _selectedGenre == SearchGenre.apparel,
+                                    onSelected: (selected) {
+                                      if (selected) _updateBrandSelectionForGenre(SearchGenre.apparel);
+                                    },
+                                    selectedColor: darkPrimaryColor.withOpacity(0.7),
+                                    backgroundColor: Colors.grey[800],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                      side: BorderSide(color: _selectedGenre == SearchGenre.apparel ? darkPrimaryColor : Colors.grey[700]!),
+                                    ),
+                                  ),
+                                  ChoiceChip(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                                    label: Text('アウトドア', style: TextStyle(color: _selectedGenre == SearchGenre.outdoor ? Colors.black : Colors.grey[300])),
+                                    selected: _selectedGenre == SearchGenre.outdoor,
+                                    onSelected: (selected) {
+                                      if (selected) _updateBrandSelectionForGenre(SearchGenre.outdoor);
+                                    },
+                                    selectedColor: darkPrimaryColor.withOpacity(0.7),
+                                    backgroundColor: Colors.grey[800],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                      side: BorderSide(color: _selectedGenre == SearchGenre.outdoor ? darkPrimaryColor : Colors.grey[700]!),
+                                    ),
+                                  ),
+                                  ChoiceChip(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                                    label: Text('バッグ', style: TextStyle(color: _selectedGenre == SearchGenre.bag ? Colors.black : Colors.grey[300])),
+                                    selected: _selectedGenre == SearchGenre.bag,
+                                    onSelected: (selected) {
+                                      if (selected) _updateBrandSelectionForGenre(SearchGenre.bag);
+                                    },
+                                    selectedColor: darkPrimaryColor.withOpacity(0.7),
+                                    backgroundColor: Colors.grey[800],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                      side: BorderSide(color: _selectedGenre == SearchGenre.bag ? darkPrimaryColor : Colors.grey[700]!),
+                                    ),
+                                  ),
+                                  ChoiceChip(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                                    label: Text('スポーツ', style: TextStyle(color: _selectedGenre == SearchGenre.sports ? Colors.black : Colors.grey[300])),
+                                    selected: _selectedGenre == SearchGenre.sports,
+                                    onSelected: (selected) {
+                                      if (selected) _updateBrandSelectionForGenre(SearchGenre.sports);
+                                    },
+                                    selectedColor: darkPrimaryColor.withOpacity(0.7),
+                                    backgroundColor: Colors.grey[800],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                      side: BorderSide(color: _selectedGenre == SearchGenre.sports ? darkPrimaryColor : Colors.grey[700]!),
+                                    ),
+                                  ),
+                                  ChoiceChip(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                                    label: Text('スニーカー', style: TextStyle(color: _selectedGenre == SearchGenre.sneakers ? Colors.black : Colors.grey[300])),
+                                    selected: _selectedGenre == SearchGenre.sneakers,
+                                    onSelected: (selected) {
+                                      if (selected) _updateBrandSelectionForGenre(SearchGenre.sneakers);
+                                    },
+                                    selectedColor: darkPrimaryColor.withOpacity(0.7),
+                                    backgroundColor: Colors.grey[800],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                      side: BorderSide(color: _selectedGenre == SearchGenre.sneakers ? darkPrimaryColor : Colors.grey[700]!),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+
                         // ブランド選択エリア
                         Container(
                           padding: const EdgeInsets.all(16),
@@ -668,14 +973,14 @@ $brandListString
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '検索対象メーカー:',
+                                '検索対象メーカー (${_getGenreDisplayName(_selectedGenre)}):',
                                 style: TextStyle(
                                   color: Colors.grey[300],
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
                               _buildBrandSelection(),
                             ],
                           ),
@@ -733,29 +1038,82 @@ $brandListString
     );
   }
 
+  Future<void> _showImageSourceDialog(BuildContext context) async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('画像ソースを選択'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                GestureDetector(
+                  child: const ListTile(
+                    leading: Icon(Icons.photo_library),
+                    title: Text('ギャラリーから選択'),
+                  ),
+                  onTap: () {
+                    _pickImage(ImageSource.gallery);
+                    Navigator.of(context).pop();
+                  },
+                ),
+                GestureDetector(
+                  child: const ListTile(
+                    leading: Icon(Icons.camera_alt),
+                    title: Text('カメラで撮影'),
+                  ),
+                  onTap: () {
+                    _pickImage(ImageSource.camera);
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildBrandSelection() {
-    final Color darkPrimaryColor = const Color.fromARGB(255, 25, 0, 250)!;
-    final Color darkChipBackgroundColor = Colors.grey[800]!;
-    final Color darkChipSelectedColor = darkPrimaryColor.withOpacity(0.3);
+    final Color darkPrimaryColor = Colors.transparent;
+    final Color darkChipSelectedColor = darkPrimaryColor.withOpacity(0.7); // 選択されているチップの背景色
+    final Color darkChipSelectedLabelColor = Colors.black; // 選択されているチップのラベル色
+    final Color darkChipSelectedBorderColor = darkPrimaryColor; // 選択されているチップの枠線色
+
+    if (_currentAvailableBrands.isEmpty) {
+      return Text('このジャンルには登録されているブランドがありません。', style: TextStyle(color: Colors.grey[400]));
+    }
 
     return Wrap(
-      spacing: 8.0,
-      runSpacing: 4.0,
-      children: _availableBrands.map((brand) {
-        return FilterChip(
-          label: Text(brand, style: TextStyle(color: _selectedBrands[brand]! ? Colors.black : Colors.grey[300])),
-          selected: _selectedBrands[brand] ?? false,
-          onSelected: (bool selected) {
-            setState(() {
-              _selectedBrands[brand] = selected;
-            });
-          },
-          backgroundColor: darkChipBackgroundColor,
-          selectedColor: darkChipSelectedColor,
-          checkmarkColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: _selectedBrands[brand]! ? darkPrimaryColor : Colors.grey[700]!),
+      spacing: 5.0,
+      runSpacing: .0,
+      children: _currentAvailableBrands.map((brand) {
+        // 常に選択状態なので、selectedは常にtrue
+        bool isSelected = true; 
+
+        return AbsorbPointer( // タップイベントを吸収して操作不可にする
+          absorbing: true, // trueで操作不可
+          child: FilterChip(
+            label: Text(
+              brand,
+              style: TextStyle(
+                color: Colors.white, // 常に選択状態のラベル色
+              ),
+            ),
+            selected: isSelected,
+            onSelected: null, // 操作できないようにnullを設定
+            backgroundColor: Colors.grey[800], // 非選択時の背景色は使用されないが念のため
+            selectedColor: darkChipSelectedColor, // 常に選択状態の背景色
+            checkmarkColor: Colors.transparent, // チェックマークは不要なので透明に
+            showCheckmark: false,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(
+                color: darkChipSelectedBorderColor, // 常に選択状態の枠線色
+                width: 1.5,
+              ),
+            ),
           ),
         );
       }).toList(),
@@ -825,5 +1183,25 @@ class ImageDrawingPainter extends CustomPainter {
            oldDelegate.rectToDraw != rectToDraw ||
            oldDelegate.currentPanStart != currentPanStart ||
            oldDelegate.currentPanEnd != currentPanEnd;
+  }
+}
+
+// Helper function to get display name for genre
+String _getGenreDisplayName(SearchGenre genre) {
+  switch (genre) {
+    case SearchGenre.lifestyle:
+      return "生活雑貨";
+    case SearchGenre.apparel:
+      return "アパレル";
+    case SearchGenre.outdoor:
+      return "アウトドア";
+    case SearchGenre.bag:
+      return "バッグ";
+    case SearchGenre.sports:
+      return "スポーツ";
+    case SearchGenre.sneakers:
+      return "スニーカー";
+    default:
+      return "";
   }
 }
