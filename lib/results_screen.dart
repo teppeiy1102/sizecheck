@@ -95,7 +95,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     return Scaffold(
       backgroundColor: darkBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.errorMessage != null ? 'エラー' : '解析結果', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(widget.errorMessage != null ? 'エラー' : '特定結果', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.grey[850],
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
@@ -163,7 +163,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Text(
-            '類似商品を検索するメーカーを選択:',
+            'ニタモノ商品を検索するメーカーを選択:',
             style: TextStyle(color: Colors.grey[300], fontWeight: FontWeight.bold),
           ),
         ),
@@ -304,7 +304,7 @@ Expanded(
                   children: [
                     Icon(Icons.straighten, size: 18, color: Colors.grey.shade400),
                     const SizedBox(width: 8),
-                    Text(product.size.toString(), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[300])),
+                    Text(_formatSize(product.size), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[300])),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -356,7 +356,7 @@ Expanded(
                   alignment: Alignment.centerRight,
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.search_sharp),
-                    label: const Text('類似商品を検索'),
+                    label: const Text('ニタモノ商品を検索'),
                     onPressed: () {
                       _showSimilarProductsBottomSheet(context, product);
                     },
@@ -403,7 +403,7 @@ Expanded(
               children: [
                 Icon(Icons.straighten, size: 16, color: Colors.grey.shade400),
                 const SizedBox(width: 8),
-                Text(product.size.toString(), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[300])),
+                Text(_formatSize(product.size), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[300])),
               ],
             ),
             const SizedBox(height: 8),
@@ -532,7 +532,7 @@ Expanded(
                 });
               } catch (e) {
                 setSheetState(() {
-                  errorSimilarMessage = '類似商品の検索中にエラー: ${e.toString()}';
+                  errorSimilarMessage = 'ニタモノ商品の検索中にエラー: ${e.toString()}';
                   isLoadingSimilar = false;
                   _webViewControllerForSheet = null; // エラー時もWebViewは表示しない
                 });
@@ -593,7 +593,7 @@ Expanded(
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: Text(
-                          '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」の類似商品',
+                          '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」のニタモノ商品',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -623,7 +623,7 @@ Expanded(
                           ),
                         ),
                       if (!isLoadingSimilar && similarProducts.isEmpty && errorSimilarMessage == null)
-                        Expanded(child: Center(child: Text('類似商品が見つかりませんでした。', style: TextStyle(color: Colors.grey[400], fontSize: 16)))),
+                        Expanded(child: Center(child: Text('ニタモノ商品が見つかりませんでした。', style: TextStyle(color: Colors.grey[400], fontSize: 16)))),
                       if (!isLoadingSimilar && similarProducts.isNotEmpty)
                         Expanded(
                           child: Column(
@@ -676,6 +676,30 @@ Expanded(
         );
       },
     );
+  }
+
+  String _formatSize(ProductSize size) {
+    List<String> parts = [];
+    if (size.width != null && size.width! > 0) {
+      parts.add('幅: ${size.width!.toStringAsFixed(1)}cm');
+    }
+    if (size.height != null && size.height! > 0) {
+      parts.add('高さ: ${size.height!.toStringAsFixed(1)}cm');
+    }
+    if (size.depth != null && size.depth! > 0) {
+      parts.add('奥行: ${size.depth!.toStringAsFixed(1)}cm');
+    }
+    if (size.volume != null && size.volume! > 0) {
+      parts.add('容量: ${size.volume!.toStringAsFixed(1)}L');
+    }
+    if (size.apparelSize != null && size.apparelSize!.isNotEmpty) {
+      parts.add('サイズ: ${size.apparelSize}');
+    }
+
+    if (parts.isEmpty) {
+      return 'サイズ情報なし';
+    }
+    return parts.join(' / ');
   }
 
   Future<ui.Image> _loadUiImage(File file) async {

@@ -716,7 +716,7 @@ $brandListString
                         ] else ...[
                           // 画像選択後の表示
                           Text(
-                            '商品をタッチして囲んでください:',
+                            '画像をドラッグして特定する商品を囲んでください。先に横方向にドラッグする必要があります。',
                             style: TextStyle(color: Colors.grey[300], fontSize: 16, fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
                           ),
