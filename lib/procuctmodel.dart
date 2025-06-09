@@ -13,13 +13,19 @@ class BoundingBox {
     required this.y2,
   });
 
-  factory BoundingBox.fromJson(Map<String, dynamic> json) {
-    return BoundingBox(
-      x1: json['x1'] as int? ?? 0,
-      y1: json['y1'] as int? ?? 0,
-      x2: json['x2'] as int? ?? 0,
-      y2: json['y2'] as int? ?? 0,
-    );
+  factory BoundingBox.fromJson(dynamic json) { // Changed from Map<String, dynamic> to dynamic
+    if (json is Map<String, dynamic>) {
+      return BoundingBox(
+        x1: json['x1'] as int? ?? 0,
+        y1: json['y1'] as int? ?? 0,
+        x2: json['x2'] as int? ?? 0,
+        y2: json['y2'] as int? ?? 0,
+      );
+    } else {
+      // Handle unexpected format, e.g., return a default or throw a specific error
+      // For now, returning a default BoundingBox with all zeros.
+      return BoundingBox(x1: 0, y1: 0, x2: 0, y2: 0);
+    }
   }
 
   // 必要に応じて width, height を計算するゲッター
@@ -33,7 +39,8 @@ class Product {
   final ProductSize size;
   final String description;
   final String productUrl;
-  final BoundingBox? boundingBox; // 追加
+  final BoundingBox? boundingBox;
+  final String? emoji; // 追加
 
   Product({
     required this.productName,
@@ -41,20 +48,22 @@ class Product {
     required this.size,
     required this.description,
     required this.productUrl,
-    this.boundingBox, // 追加
+    this.boundingBox,
+    this.emoji, // 追加
   });
 
   // JSONからProductオブジェクトを生成するファクトリコンストラクタ
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      productName: json['product_name'] as String,
-      brand: json['brand'] as String,
-      size: ProductSize.fromJson(json['size'] as Map<String, dynamic>),
-      description: json['description'] as String,
+      productName: json['product_name'] as String? ?? 'Unknown Product',
+      brand: json['brand'] as String? ?? 'Unknown Brand',
+      size: ProductSize.fromJson(json['size']), // Removed 'as Map<String, dynamic>'
+      description: json['description'] as String? ?? '',
       productUrl: json['product_url'] as String? ?? '',
       boundingBox: json['bounding_box'] != null
-          ? BoundingBox.fromJson(json['bounding_box'] as Map<String, dynamic>)
-          : null, // 追加
+          ? BoundingBox.fromJson(json['bounding_box']) // Removed 'as Map<String, dynamic>'
+          : null,
+      emoji: json['emoji'] as String?,
     );
   }
 }
@@ -67,12 +76,18 @@ class ProductSize {
   ProductSize({required this.width, required this.height, required this.depth});
 
   // JSONからProductSizeオブジェクトを生成するファクトリコンストラクタ
-  factory ProductSize.fromJson(Map<String, dynamic> json) {
-    return ProductSize(
-      width: json['width'] as num?,
-      height: json['height'] as num?,
-      depth: json['depth'] as num?,
-    );
+  factory ProductSize.fromJson(dynamic json) { // Changed from Map<String, dynamic> to dynamic
+    if (json is Map<String, dynamic>) {
+      return ProductSize(
+        width: json['width'] as num?,
+        height: json['height'] as num?,
+        depth: json['depth'] as num?,
+      );
+    } else {
+      // Handle unexpected format, e.g., return a default or throw a specific error
+      // For now, returning a ProductSize with null dimensions.
+      return ProductSize(width: null, height: null, depth: null);
+    }
   }
 
   @override

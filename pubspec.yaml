@@ -15,6 +15,7 @@ dependencies:
   flutter_dotenv:
   url_launcher:
   google_mobile_ads:
+  webview_flutter:
 
 
   cupertino_icons: ^1.0.8

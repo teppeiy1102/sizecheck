@@ -5,7 +5,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart'; // AdMobパッケー�
 import 'dart:io'; // Platform を使用するためにインポート
 import 'dart:typed_data'; // Uint8Listのため
 import 'dart:ui' as ui; // ui.Image, ui.Canvasのため
-
+import 'package:webview_flutter/webview_flutter.dart'; // ★★★ WebViewパッケージをインポート ★★★
+import 'package:flutter/gestures.dart'; // ★★★ gestureRecognizers のために追加 ★★★
 
 class ResultsScreen extends StatefulWidget {
   final List<Product> products;
@@ -273,9 +274,26 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 //    },
                 //  ),
                 if (widget.originalImageFile != null && product.boundingBox != null)
-                  const SizedBox(height: 12),
-                Text(product.productName, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)),
-                const SizedBox(height: 4),
+                  const SizedBox(height: 2),
+                  Row(children: [
+Expanded(
+  child: Text(
+  
+                    '${product.productName}', // 絵文字を表示
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)
+                  ),
+),
+                SizedBox(width: 30,),
+                Text(
+                  '${product.emoji ?? ''}', // 絵文字を表示
+                  style:TextStyle(
+                    fontSize: 40,
+                    color: Colors.white.withOpacity(0.9),) 
+                ),
+ 
+
+                  ],),
+               const SizedBox(height: 4),
                 Chip(
                   label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
                   backgroundColor: darkChipColor.withOpacity(0.7),
@@ -320,7 +338,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '「${product.brand} ${product.productName}」をGoogleで検索',
+                            '「${product.productName}」をGoogleで検索',
                             style: TextStyle(
                               color: darkAccentColor,
                               decoration: TextDecoration.underline,
@@ -357,25 +375,137 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
+  // ★★★ 類似商品アイテムを1つ表示するためのヘルパーウィジェット ★★★
+  Widget _buildSingleSimilarProductItem(BuildContext context, Product product, BuildContext sheetContext) {
+    return Card(
+      color: Colors.grey[800]!.withOpacity(0.8),
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              '${product.emoji ?? ''} ${product.productName}', // 絵文字を表示
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)
+            ),
+            const SizedBox(height: 4),
+            Chip(
+              label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
+              backgroundColor: Colors.grey[700]!.withOpacity(0.7),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.straighten, size: 16, color: Colors.grey.shade400),
+                const SizedBox(width: 8),
+                Text(product.size.toString(), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[300])),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              product.description,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 12),
+            // Google検索ボタン (WebViewがあるので、これは削除または変更しても良いかもしれません)
+            InkWell(
+              onTap: () async {
+                final searchQuery = '${product.brand} ${product.productName}';
+                final Uri url = Uri.parse('https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                } else {
+                  if (sheetContext.mounted) {
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                      SnackBar(content: Text('URLを開けませんでした: ${url.toString()}')),
+                    );
+                  }
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.open_in_new, size: 18, color: darkAccentColor), // アイコン変更
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '「${product.brand} ${product.productName}」をブラウザで検索', // テキスト変更
+                        style: TextStyle(
+                          color: darkAccentColor,
+                          decoration: TextDecoration.underline,
+                          decorationColor: darkAccentColor.withOpacity(0.7),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ));
+  }
+
   void _showSimilarProductsBottomSheet(BuildContext context, Product originalProduct) {
     bool isLoadingSimilar = true;
     List<Product> similarProducts = [];
     String? errorSimilarMessage;
     bool initialLoadStarted = false;
+    WebViewController? _webViewControllerForSheet;
+    int currentSimilarProductIndex = 0;
+
+    void updateWebView(Product product, StateSetter setSheetState, {bool isInitialLoad = false}) {
+      final searchQuery = '${product.brand} ${product.productName}';
+      final searchUrl = 'https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}&tbm=isch';
+
+      if (_webViewControllerForSheet == null || isInitialLoad) {
+        _webViewControllerForSheet = WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setBackgroundColor(const Color(0x00000000))
+          ..setNavigationDelegate(
+            NavigationDelegate(
+              onProgress: (int progress) {},
+              onPageStarted: (String url) {},
+              onPageFinished: (String url) {
+                _webViewControllerForSheet?.runJavaScript('window.scrollTo(0, 150);');
+              },
+              onWebResourceError: (WebResourceError error) {
+                // エラーハンドリング
+              },
+            ),
+          )
+          ..loadRequest(Uri.parse(searchUrl));
+      } else {
+        _webViewControllerForSheet!.loadRequest(Uri.parse(searchUrl));
+      }
+      // WebViewWidget自体がcontrollerの変更を検知して再描画するため、
+      // ここでのsetSheetStateは必須ではないことが多いが、コントローラーのインスタンスを
+      // 再代入した場合などはUIに変更を通知するために呼ぶ。
+      // 今回は主にcurrentSimilarProductIndexの変更をUIに反映させるために呼び出している。
+      if (!isInitialLoad) { // 初回ロード時はloadSimilarProducts内のsetSheetStateでUIが更新される
+          setSheetState(() {});
+      }
+    }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: false,
       builder: (BuildContext sheetContext) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
             Future<void> loadSimilarProducts() async {
-              // isLoadingSimilar のチェックは呼び出し側で行うか、ここで再度確認
-              // if (!isLoadingSimilar) return; // このチェックは initialLoadStarted で代替されている部分もある
-
               try {
-                // ResultsScreenの状態で選択されたブランドを使用
                 final activeBrands = _selectedBrandsForSimilarSearch.entries
                     .where((entry) => entry.value)
                     .map((entry) => entry.key)
@@ -387,16 +517,24 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   });
                   return;
                 }
-                // HomeScreenから渡されたコールバックを使用
                 final products = await widget.fetchSimilarProductsApiCallback(originalProduct, activeBrands);
+                
                 setSheetState(() {
-                  similarProducts = products; // 表示件数の制限を解除
+                  similarProducts = products;
                   isLoadingSimilar = false;
+                  if (similarProducts.isNotEmpty) {
+                    currentSimilarProductIndex = 0;
+                    updateWebView(similarProducts.first, setSheetState, isInitialLoad: true);
+                  } else {
+                    // 類似商品がない場合、WebViewコントローラーは不要なのでnullのまま
+                    _webViewControllerForSheet = null;
+                  }
                 });
               } catch (e) {
                 setSheetState(() {
                   errorSimilarMessage = '類似商品の検索中にエラー: ${e.toString()}';
                   isLoadingSimilar = false;
+                  _webViewControllerForSheet = null; // エラー時もWebViewは表示しない
                 });
               }
             }
@@ -408,9 +546,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
             return DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.6,
-              minChildSize: 0.3,
-              maxChildSize: 0.9,
+              initialChildSize: 0.85,
+              minChildSize: 0.2,
+              maxChildSize: 0.95,
               builder: (_, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
@@ -424,118 +562,109 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       topRight: Radius.circular(20),
                     ),
                   ),
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.only(top:8.0, left:16.0, right:16.0, bottom: 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 5,
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[600],
-                            borderRadius: BorderRadius.circular(10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: Container(
+                                width: 40,
+                                height: 5,
+                                margin: const EdgeInsets.only(bottom: 8, top: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[600],
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
                           ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.grey[400]),
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                            },
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」の類似商品',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        '「${originalProduct.productName}」の類似商品',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
-                      ),
-                      const SizedBox(height: 8),
-                      if (isLoadingSimilar)
-                        Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkAccentColor))),
-                      if (errorSimilarMessage != null)
+                      if (!isLoadingSimilar && similarProducts.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          padding: const EdgeInsets.only(bottom: 8.0),
                           child: Text(
-                            errorSimilarMessage!,
-                            style: TextStyle(color: Colors.redAccent[100], fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
+                            '${similarProducts.length} 件 (${currentSimilarProductIndex + 1}/${similarProducts.length})',
+                            style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                          ),
+                        ),
+                      if (isLoadingSimilar)
+                        Expanded(child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkAccentColor)))),
+                      if (!isLoadingSimilar && errorSimilarMessage != null)
+                        Expanded(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text(
+                                errorSimilarMessage!,
+                                style: TextStyle(color: Colors.redAccent[100], fontWeight: FontWeight.bold, fontSize: 16),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
                           ),
                         ),
                       if (!isLoadingSimilar && similarProducts.isEmpty && errorSimilarMessage == null)
-                        Center(child: Text('類似商品が見つかりませんでした。', style: TextStyle(color: Colors.grey[400]))),
+                        Expanded(child: Center(child: Text('類似商品が見つかりませんでした。', style: TextStyle(color: Colors.grey[400], fontSize: 16)))),
                       if (!isLoadingSimilar && similarProducts.isNotEmpty)
                         Expanded(
-                          child: ListView.builder(
-                            controller: scrollController,
-                            itemCount: similarProducts.length,
-                            itemBuilder: (ctx, index) {
-                              final product = similarProducts[index];
-                              return Card(
-                                color: Colors.grey[800]!.withOpacity(0.8),
-                                margin: const EdgeInsets.symmetric(vertical: 8.0),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(product.productName, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
-                                      const SizedBox(height: 4),
-                                      Chip(
-                                        label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
-                                        backgroundColor: Colors.grey[700]!.withOpacity(0.7),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.straighten, size: 16, color: Colors.grey.shade400),
-                                          const SizedBox(width: 8),
-                                          Text(product.size.toString(), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[300])),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        product.description,
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      InkWell(
-                                        onTap: () async {
-                                          final searchQuery = '${product.brand} ${product.productName}';
-                                          final Uri url = Uri.parse('https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}');
-                                          if (await canLaunchUrl(url)) {
-                                            await launchUrl(url);
-                                          } else {
-                                            if (sheetContext.mounted) { // Use sheetContext here
-                                              ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                                SnackBar(content: Text('URLを開けませんでした: ${url.toString()}')),
-                                              );
-                                            }
-                                          }
-                                        },
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.search, size: 18, color: darkAccentColor),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  '「${product.brand} ${product.productName}」をGoogleで検索',
-                                                  style: TextStyle(
-                                                    color: darkAccentColor,
-                                                    decoration: TextDecoration.underline,
-                                                    decorationColor: darkAccentColor.withOpacity(0.7),
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: 240, // PageViewの高さを調整 (カードの内容に応じて)
+                                child: PageView.builder(
+                                  itemCount: similarProducts.length,
+                                  controller: PageController(
+                                    initialPage: currentSimilarProductIndex,
+                                    viewportFraction: 0.9, // 隣のカードを少し見せる
+                                  ),
+                                  onPageChanged: (index) {
+                                    // currentSimilarProductIndex = index; // setSheetState内で更新
+                                    updateWebView(similarProducts[index], setSheetState);
+                                    setSheetState(() { // currentSimilarProductIndexの更新とUI再描画
+                                       currentSimilarProductIndex = index;
+                                    });
+                                  },
+                                  itemBuilder: (context, index) {
+                                    // PageView内で左右に少しマージンを設ける
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                      child: _buildSingleSimilarProductItem(context, similarProducts[index], sheetContext),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              if (_webViewControllerForSheet != null)
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: WebViewWidget(
+                                      controller: _webViewControllerForSheet!,
+                                    ),
                                   ),
                                 ),
-                              );
-                            },
+                               if (_webViewControllerForSheet == null && errorSimilarMessage == null && similarProducts.isNotEmpty)
+                                 const Expanded(child: Center(child: Text('画像表示エリアの準備中です...', style: TextStyle(color: Colors.orangeAccent, fontSize: 16)))),
+                            ],
                           ),
                         ),
                     ],
