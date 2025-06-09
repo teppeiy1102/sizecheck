@@ -1,4 +1,4 @@
-package com.example.sizecheck
+package com.yama.sizecheck
 
 import io.flutter.embedding.android.FlutterActivity
 
