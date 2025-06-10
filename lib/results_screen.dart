@@ -189,11 +189,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
 
     return Wrap(
-      spacing: 8.0,
+      spacing: 12.0,
       runSpacing: 4.0,
       alignment: WrapAlignment.center,
       children: availableBrandsForSimilar.map((brand) {
         return FilterChip(
+          padding: EdgeInsets.symmetric(vertical: 15, horizontal: 12), // パディングを調整
           label: Text(
             brand,
             style: TextStyle(color: _selectedBrandsForSimilarSearch[brand]! ? chipSelectedLabelColor : chipLabelColor),
@@ -462,6 +463,8 @@ Expanded(
     bool initialLoadStarted = false;
     WebViewController? _webViewControllerForSheet;
     int currentSimilarProductIndex = 0;
+    PageController? _pageController; // PageViewのコントローラー
+    bool isWebViewExpanded = false; // ★★★ WebView拡大状態を管理する変数を追加
 
     void updateWebView(Product product, StateSetter setSheetState, {bool isInitialLoad = false}) {
       final searchQuery = '${product.brand} ${product.productName}';
@@ -487,11 +490,7 @@ Expanded(
       } else {
         _webViewControllerForSheet!.loadRequest(Uri.parse(searchUrl));
       }
-      // WebViewWidget自体がcontrollerの変更を検知して再描画するため、
-      // ここでのsetSheetStateは必須ではないことが多いが、コントローラーのインスタンスを
-      // 再代入した場合などはUIに変更を通知するために呼ぶ。
-      // 今回は主にcurrentSimilarProductIndexの変更をUIに反映させるために呼び出している。
-      if (!isInitialLoad) { // 初回ロード時はloadSimilarProducts内のsetSheetStateでUIが更新される
+      if (!isInitialLoad) {
           setSheetState(() {});
       }
     }
@@ -524,9 +523,9 @@ Expanded(
                   isLoadingSimilar = false;
                   if (similarProducts.isNotEmpty) {
                     currentSimilarProductIndex = 0;
+                    _pageController = PageController(initialPage: currentSimilarProductIndex, viewportFraction: 0.9);
                     updateWebView(similarProducts.first, setSheetState, isInitialLoad: true);
                   } else {
-                    // 類似商品がない場合、WebViewコントローラーは不要なのでnullのまま
                     _webViewControllerForSheet = null;
                   }
                 });
@@ -534,7 +533,7 @@ Expanded(
                 setSheetState(() {
                   errorSimilarMessage = 'ニタモノ商品の検索中にエラー: ${e.toString()}';
                   isLoadingSimilar = false;
-                  _webViewControllerForSheet = null; // エラー時もWebViewは表示しない
+                  _webViewControllerForSheet = null; 
                 });
               }
             }
@@ -568,58 +567,11 @@ Expanded(
                     children: [
                       Row(
                         children: [
-                          Expanded(child: 
-                          SizedBox(
-                            height: 100,
-                            child: Column(
-                              
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Text(
-                                '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」のニタモノ商品',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                                                    if (!isLoadingSimilar && similarProducts.isNotEmpty)
-                                                      Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Text(
-                              '${similarProducts.length} 件 (${currentSimilarProductIndex + 1}/${similarProducts.length})',
-                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            ),
-                                                      ),
-                                                    if (isLoadingSimilar)
-                                                      Expanded(child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkAccentColor)))),
-                                                    if (!isLoadingSimilar && errorSimilarMessage != null)
-                                                      Expanded(
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Text(
-                                  errorSimilarMessage!,
-                                  style: TextStyle(color: Colors.redAccent[100], fontWeight: FontWeight.bold, fontSize: 16),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                                                      ),
-                            
-                            ],),
-                          ),
-                          
-                          ),
-                          
-                      
-                      
+                          Expanded(child: SizedBox()),
                          IconButton(
                             icon: Icon(Icons.close, color: Colors.grey[400]),
                             onPressed: () {
+                              _pageController?.dispose(); // コントローラーを破棄
                               Navigator.of(sheetContext).pop();
                             },
                           ),
@@ -627,42 +579,167 @@ Expanded(
                       ),
                                             if (!isLoadingSimilar && similarProducts.isEmpty && errorSimilarMessage == null)
                         Expanded(child: Center(child: Text('ニタモノ商品が見つかりませんでした。', style: TextStyle(color: Colors.grey[400], fontSize: 16)))),
+                      if (!isWebViewExpanded) // ★★★ WebViewが拡大されていない時だけ表示 ★★★
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」のニタモノ商品',
+                            style:TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (!isWebViewExpanded && !isLoadingSimilar && similarProducts.isNotEmpty) // ★★★ WebViewが拡大されていない時だけ表示 ★★★
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4.0), // 少し詰める
+                            child: Text(
+                              '${similarProducts.length} 件の候補', // 表示変更
+                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                            ),
+                          ),
+                        if (isLoadingSimilar)
+                          const Expanded(child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.pinkAccent)))),
+                        if (!isLoadingSimilar && errorSimilarMessage != null)
+                          Expanded(
+child: Center(
+  child: Padding(
+    padding: const EdgeInsets.all(16.0),
+    child: Text(
+      errorSimilarMessage!,
+      style: TextStyle(color: Colors.redAccent[100], fontWeight: FontWeight.bold, fontSize: 16),
+      textAlign: TextAlign.center,
+    ),
+  ),
+),
+                          ),
                       if (!isLoadingSimilar && similarProducts.isNotEmpty)
                         Expanded(
                           child: Column(
                             children: [
-                              SizedBox(
-                                height: 240, // PageViewの高さを調整 (カードの内容に応じて)
-                                child: PageView.builder(
-                                  itemCount: similarProducts.length,
-                                  controller: PageController(
-                                    initialPage: currentSimilarProductIndex,
-                                    viewportFraction: 0.9, // 隣のカードを少し見せる
+                              if (!isWebViewExpanded) // ★★★ 拡大されていない時だけ表示 ★★★
+                                SizedBox(
+                                  height: 230, // PageViewの高さを調整
+                                  child: PageView.builder(
+                                    itemCount: similarProducts.length,
+                                    controller: _pageController,
+                                    onPageChanged: (index) {
+                                      updateWebView(similarProducts[index], setSheetState); // WebViewを更新
+                                      setSheetState(() { 
+                                         currentSimilarProductIndex = index;
+                                      });
+                                    },
+                                    itemBuilder: (context, index) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                        child: _buildSingleSimilarProductItem(context, similarProducts[index], sheetContext),
+                                      );
+                                    },
                                   ),
-                                  onPageChanged: (index) {
-                                    // currentSimilarProductIndex = index; // setSheetState内で更新
-                                    updateWebView(similarProducts[index], setSheetState);
-                                    setSheetState(() { // currentSimilarProductIndexの更新とUI再描画
-                                       currentSimilarProductIndex = index;
-                                    });
-                                  },
-                                  itemBuilder: (context, index) {
-                                    // PageView内で左右に少しマージンを設ける
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                      child: _buildSingleSimilarProductItem(context, similarProducts[index], sheetContext),
-                                    );
-                                  },
                                 ),
-                              ),
-                              const SizedBox(height: 8),
+                              // ナビゲーションボタンとインジケーターを削除
+                              // if (similarProducts.length > 1) 
+                              //   Padding(
+                              //     ...
+                              //   ),
+                              if (!isWebViewExpanded) // ★★★ 拡大されていない時だけ表示 ★★★
+                                const SizedBox(height: 8),
                               if (_webViewControllerForSheet != null)
                                 Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: WebViewWidget(
-                                      controller: _webViewControllerForSheet!,
-                                    ),
+                                  child: Stack( // WebViewとPopupMenuButtonを重ねるためにStackを使用
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(30),
+                                        child: WebViewWidget(
+                                          controller: _webViewControllerForSheet!,
+                                        ),
+                                      ),
+                                      Positioned( // ★★★ 拡大ボタンを追加 ★★★
+                                        top: 8.0,
+                                        right: 8.0,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: IconButton(
+                                            icon: Icon(
+                                              isWebViewExpanded ? Icons.fullscreen_exit : Icons.fullscreen,
+                                              color: Colors.white,
+                                            ),
+                                            tooltip: isWebViewExpanded ? '縮小する' : '拡大する',
+                                            onPressed: () {
+                                              setSheetState(() {
+                                                isWebViewExpanded = !isWebViewExpanded;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      if (similarProducts.length > 1) // ★★★ 拡大時も表示するように変更 (isWebViewExpanded の条件を削除) ★★★
+                                        Positioned(
+                                          right: 16.0,
+                                          bottom: 30.0,
+                                          child: Container(
+                                                                       padding: const EdgeInsets.all(8.0), // アイコンの周囲に余白を追加してボタンを大きく見せる
+                                            decoration: BoxDecoration(
+                                              color: darkAccentColor.withOpacity(0.85),
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.3),
+                                                  spreadRadius: 1,
+                                                  blurRadius: 3,
+                                                  offset: const Offset(0, 1),
+                                                ),
+                                              ],
+                                            ),
+                                            child: PopupMenuButton<int>(
+                                              icon: const Icon(Icons.list, color: Colors.black),
+                                              tooltip: 'ニタモノ商品を選択',
+                                              onSelected: (int index) {
+                                                // ★★★ WebView拡大時はPageViewを操作しない ★★★
+                                                if (!isWebViewExpanded) {
+                                                  _pageController?.jumpToPage(index); // PageViewを直接移動
+                                                }
+                                                updateWebView(similarProducts[index], setSheetState); // WebViewを更新
+                                                setSheetState(() {
+                                                  currentSimilarProductIndex = index;
+                                                });
+                                              },
+                                              itemBuilder: (BuildContext context) {
+                                                return List.generate(similarProducts.length, (index) {
+                                                  final product = similarProducts[index];
+                                                  return PopupMenuItem<int>(
+                                                    value: index,
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          product.brand, // メーカー名
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.grey[600],
+                                                            fontWeight: FontWeight.normal,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          '${index + 1}. ${product.productName}',
+                                                          style: TextStyle(
+                                                            color: currentSimilarProductIndex == index ? darkAccentColor : Colors.black87,
+                                                            fontWeight: currentSimilarProductIndex == index ? FontWeight.bold : FontWeight.normal,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                          maxLines: 2, // 商品名を2行まで表示可能にする
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                if (_webViewControllerForSheet == null && errorSimilarMessage == null && similarProducts.isNotEmpty)

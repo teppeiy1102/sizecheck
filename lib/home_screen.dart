@@ -221,6 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
 あなたは、画像から商品を特定する専門家です。
 $genreSpecificPromptPart
 赤い枠内の商品のみを対象とし、指定されたメーカーの製品を探してください。
+特定する際は、サイズなど赤い枠外の情報も参考にしてください。
 もっとも適切と思われる商品1つだけでいいですが、同じメーカーであれば複数でも構いません。
 
 対象メーカー:
@@ -372,7 +373,7 @@ $brandListString
           builder: (BuildContext context) {
             return AlertDialog(
               backgroundColor: Colors.white,
-              title: Text('${_getGenreDisplayName(_selectedGenre)}で商品の特定'),
+              title: Text('${_getGenreDisplayName(_selectedGenre)}でAIに解析を依頼する'),
               content: SingleChildScrollView( // 画像が大きい場合にスクロール可能にする
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -781,11 +782,14 @@ $brandListString
                                           _panStartOffset = _panCurrentOffset = null;
                                         });
                                       },
-                                      child: CustomPaint(
-                                        key: _customPaintKey,
-                                        painter: ImageDrawingPainter(
-                                          image: _displayedUiImage!,
-                                          rectToDraw: _drawnRect,
+                                      child: ClipRRect( // ClipRRectでラップ
+                                        borderRadius: BorderRadius.circular(24.0), // 角丸の半径を指定
+                                        child: CustomPaint(
+                                          key: _customPaintKey,
+                                          painter: ImageDrawingPainter(
+                                            image: _displayedUiImage!,
+                                            rectToDraw: _drawnRect,
+                                          ),
                                         ),
                                       ),
                                     ),
