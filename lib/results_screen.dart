@@ -546,7 +546,7 @@ Expanded(
 
             return DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.85,
+              initialChildSize: 0.9,
               minChildSize: 0.2,
               maxChildSize: 0.95,
               builder: (_, scrollController) {
@@ -558,8 +558,8 @@ Expanded(
                       end: Alignment.bottomCenter,
                     ),
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
+                      topLeft: Radius.circular(40),
+                      topRight: Radius.circular(40),
                     ),
                   ),
                   padding: const EdgeInsets.only(top:8.0, left:16.0, right:16.0, bottom: 0),
@@ -567,22 +567,57 @@ Expanded(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
+                          Expanded(child: 
+                          SizedBox(
+                            height: 100,
+                            child: Column(
+                              
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Text(
+                                '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」のニタモノ商品',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                                                    if (!isLoadingSimilar && similarProducts.isNotEmpty)
+                                                      Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Text(
+                              '${similarProducts.length} 件 (${currentSimilarProductIndex + 1}/${similarProducts.length})',
+                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                            ),
+                                                      ),
+                                                    if (isLoadingSimilar)
+                                                      Expanded(child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkAccentColor)))),
+                                                    if (!isLoadingSimilar && errorSimilarMessage != null)
+                                                      Expanded(
                             child: Center(
-                              child: Container(
-                                width: 40,
-                                height: 5,
-                                margin: const EdgeInsets.only(bottom: 8, top: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[600],
-                                  borderRadius: BorderRadius.circular(10),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  errorSimilarMessage!,
+                                  style: TextStyle(color: Colors.redAccent[100], fontWeight: FontWeight.bold, fontSize: 16),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
                             ),
+                                                      ),
+                            
+                            ],),
                           ),
-                          IconButton(
+                          
+                          ),
+                          
+                      
+                      
+                         IconButton(
                             icon: Icon(Icons.close, color: Colors.grey[400]),
                             onPressed: () {
                               Navigator.of(sheetContext).pop();
@@ -590,39 +625,7 @@ Expanded(
                           ),
                         ],
                       ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Text(
-                          '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」のニタモノ商品',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (!isLoadingSimilar && similarProducts.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Text(
-                            '${similarProducts.length} 件 (${currentSimilarProductIndex + 1}/${similarProducts.length})',
-                            style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                          ),
-                        ),
-                      if (isLoadingSimilar)
-                        Expanded(child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkAccentColor)))),
-                      if (!isLoadingSimilar && errorSimilarMessage != null)
-                        Expanded(
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                errorSimilarMessage!,
-                                style: TextStyle(color: Colors.redAccent[100], fontWeight: FontWeight.bold, fontSize: 16),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (!isLoadingSimilar && similarProducts.isEmpty && errorSimilarMessage == null)
+                                            if (!isLoadingSimilar && similarProducts.isEmpty && errorSimilarMessage == null)
                         Expanded(child: Center(child: Text('ニタモノ商品が見つかりませんでした。', style: TextStyle(color: Colors.grey[400], fontSize: 16)))),
                       if (!isLoadingSimilar && similarProducts.isNotEmpty)
                         Expanded(

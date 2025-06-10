@@ -371,14 +371,15 @@ $brandListString
           barrierDismissible: false, // ダイアログ外タップで閉じないようにする
           builder: (BuildContext context) {
             return AlertDialog(
-              title: const Text('AIに送信する画像'),
+              backgroundColor: Colors.white,
+              title: Text('${_getGenreDisplayName(_selectedGenre)}で商品の特定'),
               content: SingleChildScrollView( // 画像が大きい場合にスクロール可能にする
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.memory(imageBytesWithRectangle),
                     const SizedBox(height: 10),
-                    const Text("この画像でAI解析を実行しますか？"),
+                    const Text("AI解析を実行しますか？"),
                   ],
                 ),
               ),
