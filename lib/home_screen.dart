@@ -247,10 +247,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
             },
           );
           // アプリ起動時に広告を表示するフラグが立っていれば表示
-          if (_shouldShowAdOnAppLaunch) {
-            _showInterstitialAdIfNeeded(isAppLaunch: true);
-            _shouldShowAdOnAppLaunch = false; // 表示後はフラグを下ろす
-          }
+          // if (_shouldShowAdOnAppLaunch) {
+          //   _showInterstitialAdIfNeeded(isAppLaunch: true);
+          //   _shouldShowAdOnAppLaunch = false; // 表示後はフラグを下ろす
+          // }
         },
         onAdFailedToLoad: (LoadAdError error) {
           debugPrint('InterstitialAd failed to load: $error.');
@@ -280,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
     }
   }
 
-  bool _shouldShowAdOnAppLaunch = true; // アプリ起動時に広告を表示すべきかどうかのフラグ
+  bool _shouldShowAdOnAppLaunch = false; // アプリ起動時に広告を表示すべきかどうかのフラグ
 
   Future<void> _showInterstitialAdAndAnalyze() async {
     if (_isInterstitialAdLoaded && _interstitialAd != null) {
