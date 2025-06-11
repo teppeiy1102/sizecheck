@@ -7,6 +7,7 @@ import 'dart:typed_data'; // Uint8Listのため
 import 'dart:ui' as ui; // ui.Image, ui.Canvasのため
 import 'package:webview_flutter/webview_flutter.dart'; // ★★★ WebViewパッケージをインポート ★★★
 import 'package:flutter/gestures.dart'; // ★★★ gestureRecognizers のために追加 ★★★
+import 'home_screen.dart'; // ★★★ 追加: SearchGenre を利用するため ★★★
 
 class ResultsScreen extends StatefulWidget {
   final List<Product> products;
@@ -14,7 +15,8 @@ class ResultsScreen extends StatefulWidget {
   final Map<String, bool> selectedBrands;
   final Map<String, String> brandTopPageUrls;
   final Future<List<Product>> Function(Product, List<String>) fetchSimilarProductsApiCallback;
-  final File? originalImageFile; // ★★★ 追加: 元の画像ファイルを受け取る ★★★
+  final File? originalImageFile; // ★★★ 変更前にも存在 ★★★
+  final SearchGenre selectedGenre; // ★★★ 追加 ★★★
 
 
   const ResultsScreen({
@@ -24,7 +26,8 @@ class ResultsScreen extends StatefulWidget {
     required this.selectedBrands,
     required this.brandTopPageUrls,
     required this.fetchSimilarProductsApiCallback,
-    this.originalImageFile, // ★★★ 追加 ★★★
+    this.originalImageFile, // ★★★ 変更前にも存在 ★★★
+    required this.selectedGenre, // ★★★ 追加 ★★★
   });
 
   @override
@@ -48,8 +51,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   // テスト用の広告ユニットID (実際のIDに置き換えてください)
   final String _bannerAdUnitId = Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/6300978111' // AndroidのテストID
-      : 'ca-app-pub-3940256099942544/2934735716'; // iOSのテストID
+? 'ca-app-pub-7148683667182672/9797170752' // AndroidのテストID
+      : 'ca-app-pub-7148683667182672/3020009417'; // iOSのテストID
 
 
   @override
@@ -460,13 +463,16 @@ Expanded(
     bool isLoadingSimilar = true;
     List<Product> similarProducts = [];
     String? errorSimilarMessage;
-    bool initialLoadStarted = false;
+    // bool initialLoadStarted = false; // StatefulBuilder内で初期化されると再ビルド時にリセットされるため外に移動
     WebViewController? _webViewControllerForSheet;
     int currentSimilarProductIndex = 0;
     PageController? _pageController; // PageViewのコントローラー
-    bool isWebViewExpanded = false; // ★★★ WebView拡大状態を管理する変数を追加
+    bool isWebViewExpanded = false;
 
-    void updateWebView(Product product, StateSetter setSheetState, {bool isInitialLoad = false}) {
+    bool initialLoadStarted = false; // ここで初期化
+
+    // updateWebView 関数のシグネチャに BuildContext sheetContext を追加
+    void updateWebView(Product product, StateSetter setSheetState, BuildContext sheetContext, {bool isInitialLoad = false}) {
       final searchQuery = '${product.brand} ${product.productName}';
       final searchUrl = 'https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}&tbm=isch';
 
@@ -491,7 +497,10 @@ Expanded(
         _webViewControllerForSheet!.loadRequest(Uri.parse(searchUrl));
       }
       if (!isInitialLoad) {
-          setSheetState(() {});
+          // ここで引数として渡された sheetContext を使用
+          if (mounted && sheetContext.mounted) {
+            setSheetState(() {});
+          }
       }
     }
 
@@ -500,7 +509,7 @@ Expanded(
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       enableDrag: false,
-      builder: (BuildContext sheetContext) {
+      builder: (BuildContext sheetContext) { // この sheetContext を updateWebView に渡す
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
             Future<void> loadSimilarProducts() async {
@@ -510,31 +519,40 @@ Expanded(
                     .map((entry) => entry.key)
                     .toList();
                 if (activeBrands.isEmpty) {
-                  setSheetState(() {
-                    errorSimilarMessage = '検索対象のメーカーを1つ以上選択してください。';
-                    isLoadingSimilar = false;
-                  });
+                  if (sheetContext.mounted) { // マウント確認
+                    setSheetState(() {
+                      errorSimilarMessage = '検索対象のメーカーを1つ以上選択してください。';
+                      isLoadingSimilar = false;
+                    });
+                  }
                   return;
                 }
+                if (!sheetContext.mounted) return; // API呼び出し前に確認
+
                 final products = await widget.fetchSimilarProductsApiCallback(originalProduct, activeBrands);
                 
-                setSheetState(() {
-                  similarProducts = products;
-                  isLoadingSimilar = false;
-                  if (similarProducts.isNotEmpty) {
-                    currentSimilarProductIndex = 0;
-                    _pageController = PageController(initialPage: currentSimilarProductIndex, viewportFraction: 0.9);
-                    updateWebView(similarProducts.first, setSheetState, isInitialLoad: true);
-                  } else {
-                    _webViewControllerForSheet = null;
-                  }
-                });
+                if (sheetContext.mounted) { // API呼び出し後に再度マウント確認
+                  setSheetState(() {
+                    similarProducts = products;
+                    isLoadingSimilar = false;
+                    if (similarProducts.isNotEmpty) {
+                      currentSimilarProductIndex = 0;
+                      _pageController = PageController(initialPage: currentSimilarProductIndex, viewportFraction: 0.9);
+                      // updateWebView の呼び出し箇所で sheetContext を渡す
+                      updateWebView(similarProducts.first, setSheetState, sheetContext, isInitialLoad: true);
+                    } else {
+                      _webViewControllerForSheet = null;
+                    }
+                  });
+                }
               } catch (e) {
-                setSheetState(() {
-                  errorSimilarMessage = 'ニタモノ商品の検索中にエラー: ${e.toString()}';
-                  isLoadingSimilar = false;
-                  _webViewControllerForSheet = null; 
-                });
+                if (sheetContext.mounted) { // マウント確認
+                  setSheetState(() {
+                    errorSimilarMessage = 'ニタモノ商品の検索中にエラー: ${e.toString()}';
+                    isLoadingSimilar = false;
+                    _webViewControllerForSheet = null; 
+                  });
+                }
               }
             }
 
@@ -567,11 +585,11 @@ Expanded(
                     children: [
                       Row(
                         children: [
-                          Expanded(child: SizedBox()),
+                          const Expanded(child: SizedBox()),
                          IconButton(
                             icon: Icon(Icons.close, color: Colors.grey[400]),
                             onPressed: () {
-                              _pageController?.dispose(); // コントローラーを破棄
+                              _pageController?.dispose(); 
                               Navigator.of(sheetContext).pop();
                             },
                           ),
@@ -623,10 +641,13 @@ child: Center(
                                     itemCount: similarProducts.length,
                                     controller: _pageController,
                                     onPageChanged: (index) {
-                                      updateWebView(similarProducts[index], setSheetState); // WebViewを更新
-                                      setSheetState(() { 
-                                         currentSimilarProductIndex = index;
-                                      });
+                                      if (sheetContext.mounted) { // マウント確認
+                                        // updateWebView の呼び出し箇所で sheetContext を渡す
+                                        updateWebView(similarProducts[index], setSheetState, sheetContext); 
+                                        setSheetState(() { 
+                                           currentSimilarProductIndex = index;
+                                        });
+                                      }
                                     },
                                     itemBuilder: (context, index) {
                                       return Padding(
@@ -668,19 +689,21 @@ child: Center(
                                             ),
                                             tooltip: isWebViewExpanded ? '縮小する' : '拡大する',
                                             onPressed: () {
-                                              setSheetState(() {
-                                                isWebViewExpanded = !isWebViewExpanded;
-                                              });
+                                              if (sheetContext.mounted) { // マウント確認
+                                                setSheetState(() {
+                                                  isWebViewExpanded = !isWebViewExpanded;
+                                                });
+                                              }
                                             },
                                           ),
                                         ),
                                       ),
-                                      if (similarProducts.length > 1) // ★★★ 拡大時も表示するように変更 (isWebViewExpanded の条件を削除) ★★★
+                                      if (similarProducts.length > 1) 
                                         Positioned(
                                           right: 16.0,
                                           bottom: 30.0,
                                           child: Container(
-                                                                       padding: const EdgeInsets.all(8.0), // アイコンの周囲に余白を追加してボタンを大きく見せる
+                                                                       padding: const EdgeInsets.all(8.0), 
                                             decoration: BoxDecoration(
                                               color: darkAccentColor.withOpacity(0.85),
                                               shape: BoxShape.circle,
@@ -697,14 +720,16 @@ child: Center(
                                               icon: const Icon(Icons.list, color: Colors.black),
                                               tooltip: 'ニタモノ商品を選択',
                                               onSelected: (int index) {
-                                                // ★★★ WebView拡大時はPageViewを操作しない ★★★
                                                 if (!isWebViewExpanded) {
-                                                  _pageController?.jumpToPage(index); // PageViewを直接移動
+                                                  _pageController?.jumpToPage(index); 
                                                 }
-                                                updateWebView(similarProducts[index], setSheetState); // WebViewを更新
-                                                setSheetState(() {
-                                                  currentSimilarProductIndex = index;
-                                                });
+                                                if (sheetContext.mounted) { // マウント確認
+                                                  // updateWebView の呼び出し箇所で sheetContext を渡す
+                                                  updateWebView(similarProducts[index], setSheetState, sheetContext); 
+                                                  setSheetState(() {
+                                                    currentSimilarProductIndex = index;
+                                                  });
+                                                }
                                               },
                                               itemBuilder: (BuildContext context) {
                                                 return List.generate(similarProducts.length, (index) {

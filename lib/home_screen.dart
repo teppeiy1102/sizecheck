@@ -21,7 +21,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { // WidgetsBindingObserver をミックスイン
   File? _imageFile;
   ui.Image? _displayedUiImage; // CustomPainterで描画するためのデコード済み画像
   Rect? _drawnRect; // ユーザーが描画した矩形
@@ -133,11 +133,39 @@ class _HomeScreenState extends State<HomeScreen> {
       ? 'ca-app-pub-7148683667182672/9797170752' // AndroidのテストID
       : 'ca-app-pub-7148683667182672/3020009417'; // iOSのテストID
 
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialAdLoaded = false;
+  final String _interstitialAdUnitId = Platform.isAndroid
+      ? 'ca-app-pub-7148683667182672/5564236103' // AndroidのテストID (Google提供)
+      : 'ca-app-pub-7148683667182672/2770551808'; // iOSのテストID (Google提供)
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // ライフサイクル監視を開始
     _updateBrandSelectionForGenre(_selectedGenre);
     _loadBannerAd();
+    _loadInterstitialAd(); // インタースティシャル広告をロード
+    // initStateではすぐに表示せず、didChangeAppLifecycleStateで最初のresume時や、
+    // _loadInterstitialAdの完了時に表示を試みる
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // ライフサイクル監視を終了
+    _bannerAd?.dispose();
+    _interstitialAd?.dispose();
+    _displayedUiImage?.dispose(); // ui.Imageをdispose
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // アプリがフォアグラウンドに戻ったときに広告表示を試みる
+      _showInterstitialAdIfNeeded(isAppLaunch: false);
+    }
   }
 
   void _updateBrandSelectionForGenre(SearchGenre genre) {
@@ -184,11 +212,103 @@ class _HomeScreenState extends State<HomeScreen> {
     )..load();
   }
 
-  @override
-  void dispose() {
-    _bannerAd?.dispose();
-    _displayedUiImage?.dispose(); // ui.Imageをdispose
-    super.dispose();
+  void _loadInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: _interstitialAdUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          debugPrint('$ad loaded');
+          _interstitialAd?.dispose(); // 既存の広告があれば破棄
+          _interstitialAd = ad;
+          _isInterstitialAdLoaded = true;
+
+          // アプリ起動時（最初のresume前）にロード完了した場合も考慮
+          // ただし、解析フローの広告表示と競合しないように注意が必要
+          // ここでは、didChangeAppLifecycleStateの初回resumeで表示することを期待する
+          // もしくは、特定の条件下（例：初回起動時のみ）で表示するロジックを追加
+
+          _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdShowedFullScreenContent: (InterstitialAd ad) =>
+                debugPrint('$ad onAdShowedFullScreenContent.'),
+            onAdDismissedFullScreenContent: (InterstitialAd ad) {
+              debugPrint('$ad onAdDismissedFullScreenContent.');
+              ad.dispose();
+              _isInterstitialAdLoaded = false; // 表示後はロードされていない状態に戻す
+              _loadInterstitialAd(); // 次の広告をロード
+              // _proceedWithAnalysis(); // ★広告が閉じられた後に解析を続行 - これは解析フロー専用
+            },
+            onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+              debugPrint('$ad onAdFailedToShowFullScreenContent: $error');
+              ad.dispose();
+              _isInterstitialAdLoaded = false;
+              _loadInterstitialAd(); // 次の広告をロード
+              // _proceedWithAnalysis(); // ★表示失敗時も解析を続行 - これは解析フロー専用
+            },
+          );
+          // アプリ起動時に広告を表示するフラグが立っていれば表示
+          if (_shouldShowAdOnAppLaunch) {
+            _showInterstitialAdIfNeeded(isAppLaunch: true);
+            _shouldShowAdOnAppLaunch = false; // 表示後はフラグを下ろす
+          }
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          debugPrint('InterstitialAd failed to load: $error.');
+          _isInterstitialAdLoaded = false;
+          // 必要であればリトライ処理などをここに追加
+        },
+      ));
+  }
+
+  // 解析フローとは別にインタースティシャル広告を表示するメソッド
+  Future<void> _showInterstitialAdIfNeeded({bool isAppLaunch = false}) async {
+    // _isLoading は解析中のローディングであり、アプリ起動時の広告表示とは直接関係ない場合がある
+    // 解析ボタン押下時の広告表示(_showInterstitialAdAndAnalyze)と区別する
+    if (_isInterstitialAdLoaded && _interstitialAd != null) {
+      // 解析処理(_proceedWithAnalysis)を伴わない広告表示
+      // 他の広告表示ロジック（例：解析前広告）と競合しないように注意
+      // ここでは、単純に広告を表示するだけ
+      await _interstitialAd!.show();
+      // 表示後は _isInterstitialAdLoaded を false にし、_loadInterstitialAd を呼んでおくのが一般的
+      // onAdDismissedFullScreenContent で再ロードしているのでここでは不要かもしれないが、
+      // show() が成功した時点で次の広告を準備し始めるのが安全
+    } else {
+      debugPrint('Interstitial ad not ready for showing (isAppLaunch: $isAppLaunch).');
+      if (!_isInterstitialAdLoaded) {
+        _loadInterstitialAd(); // ロードされていなければロードを試みる
+      }
+    }
+  }
+
+  bool _shouldShowAdOnAppLaunch = true; // アプリ起動時に広告を表示すべきかどうかのフラグ
+
+  Future<void> _showInterstitialAdAndAnalyze() async {
+    if (_isInterstitialAdLoaded && _interstitialAd != null) {
+      // このメソッドは解析前に広告を表示するためのもの
+      // 広告表示後に _proceedWithAnalysis が呼ばれるように fullScreenContentCallback が設定されている前提
+      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdShowedFullScreenContent: (InterstitialAd ad) =>
+                debugPrint('$ad onAdShowedFullScreenContent (during analysis flow).'),
+            onAdDismissedFullScreenContent: (InterstitialAd ad) {
+              debugPrint('$ad onAdDismissedFullScreenContent (during analysis flow).');
+              ad.dispose();
+              _isInterstitialAdLoaded = false;
+              _loadInterstitialAd(); // 次の広告をロード
+              _proceedWithAnalysis(); // ★広告が閉じられた後に解析を続行
+            },
+            onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+              debugPrint('$ad onAdFailedToShowFullScreenContent: $error (during analysis flow).');
+              ad.dispose();
+              _isInterstitialAdLoaded = false;
+              _loadInterstitialAd(); // 次の広告をロード
+              _proceedWithAnalysis(); // ★表示失敗時も解析を続行
+            },
+          );
+      await _interstitialAd!.show();
+    } else {
+      debugPrint('Interstitial ad not ready for analysis flow, proceeding with analysis directly.');
+      _proceedWithAnalysis();
+    }
   }
 
   // ユーザーが指定した領域を解析するためのプロンプト（調整が必要）
@@ -330,6 +450,12 @@ $brandListString
       return;
     }
 
+    // インタースティシャル広告を表示し、その後解析処理を呼び出す
+    await _showInterstitialAdAndAnalyze();
+  }
+
+  // AI解析処理を実際に行う部分を別のメソッドに分離
+  Future<void> _proceedWithAnalysis() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -458,6 +584,7 @@ $brandListString
               brandTopPageUrls: _brandTopPageUrls,
               fetchSimilarProductsApiCallback: _fetchSimilarProductsApi,
               originalImageFile: _imageFile,
+              selectedGenre: _selectedGenre, // ★★★ 追加 ★★★
             ),
           ),
         );
@@ -481,6 +608,7 @@ $brandListString
               brandTopPageUrls: _brandTopPageUrls,
               fetchSimilarProductsApiCallback: _fetchSimilarProductsApi,
               originalImageFile: _imageFile,
+              selectedGenre: _selectedGenre, // ★★★ 追加 ★★★
             ),
           ),
         );
