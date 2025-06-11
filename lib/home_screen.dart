@@ -164,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       // アプリがフォアグラウンドに戻ったときに広告表示を試みる
-      _showInterstitialAdIfNeeded(isAppLaunch: false);
+      //_showInterstitialAdIfNeeded(isAppLaunch: false);
     }
   }
 
@@ -499,26 +499,31 @@ $brandListString
           builder: (BuildContext context) {
             return AlertDialog(
               backgroundColor: Colors.white,
-              title: Text('${_getGenreDisplayName(_selectedGenre)}でAIに解析を依頼する'),
               content: SingleChildScrollView( // 画像が大きい場合にスクロール可能にする
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.memory(imageBytesWithRectangle),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(30),
+                      child: Image.memory(imageBytesWithRectangle)),
                     const SizedBox(height: 10),
-                    const Text("AI解析を実行しますか？"),
+              Text('${_getGenreDisplayName(_selectedGenre)}', style: TextStyle(fontWeight: FontWeight.bold,fontSize: 20)),
+                    const Text("AI解析を実行しますか？",
+                      style: TextStyle(fontSize: 16,),
+                    ),
                   ],
                 ),
               ),
               actions: <Widget>[
                 TextButton(
-                  child: const Text('キャンセル'),
+                  child: const Text('キャンセル',style: TextStyle(color: Colors.black54,fontSize: 14),),
+                  
                   onPressed: () {
                     Navigator.of(context).pop(false); // 解析をキャンセル
                   },
                 ),
                 TextButton(
-                  child: const Text('OK'),
+                  child: const Text('OK',style: TextStyle(color: Colors.red,fontSize: 18),),
                   onPressed: () {
                     Navigator.of(context).pop(true); // 解析を続行
                   },
@@ -1176,6 +1181,7 @@ $brandListString
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           title: const Text('画像ソースを選択'),
           content: SingleChildScrollView(
             child: ListBody(

@@ -162,7 +162,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         Expanded(
           child: _buildResultsList(),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Text(
@@ -171,8 +171,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
         ),
         const SizedBox(height: 8),
+        Container(
+child:
         _buildBrandSelectionForSimilarSearch(),
-        const SizedBox(height: 8), // 必要に応じて下部のパディング調整
+        ),
+        //const SizedBox(height: 8), // 必要に応じて下部のパディング調整
       ],
     );
   }
@@ -192,8 +195,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
 
     return Wrap(
-      spacing: 12.0,
-      runSpacing: 4.0,
+      spacing: 5.0,
+      runSpacing: 5.0,
       alignment: WrapAlignment.center,
       children: availableBrandsForSimilar.map((brand) {
         return FilterChip(
