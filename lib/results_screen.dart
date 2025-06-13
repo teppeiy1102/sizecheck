@@ -172,8 +172,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
         ),
         const SizedBox(height: 8),
         Container(
-child:
-        _buildBrandSelectionForSimilarSearch(),
+          constraints: const BoxConstraints(
+            maxHeight: 250, // メーカー選択部分の最大高さを設定 (この値は調整可能です)
+          ),
+          child: SingleChildScrollView( // 内容が最大高さを超える場合にスクロール可能にする
+            child: _buildBrandSelectionForSimilarSearch(),
+          ),
         ),
         //const SizedBox(height: 8), // 必要に応じて下部のパディング調整
       ],
