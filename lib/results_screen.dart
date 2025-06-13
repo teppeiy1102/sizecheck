@@ -7,7 +7,7 @@ import 'dart:typed_data'; // Uint8Listのため
 import 'dart:ui' as ui; // ui.Image, ui.Canvasのため
 import 'package:webview_flutter/webview_flutter.dart'; // ★★★ WebViewパッケージをインポート ★★★
 import 'package:flutter/gestures.dart'; // ★★★ gestureRecognizers のために追加 ★★★
-import 'home_screen.dart'; // ★★★ 追加: SearchGenre を利用するため ★★★
+import 'brand_data.dart';
 
 class ResultsScreen extends StatefulWidget {
   final List<Product> products;
