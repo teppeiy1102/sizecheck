@@ -441,6 +441,30 @@ class BrandData {
     'White Mountaineering': 'https://whitemountaineering.com/',
     'HYKE': 'https://hyke.jp/',
     'Mame Kurogouchi': 'https://www.mamekurogouchi.com/',
+
+    // ★ ストリートブランド
+    'Supreme': 'https://jp.supreme.com/',
+    'Stussy': 'https://stussy.jp/',
+    'A BATHING APE': 'https://bape.com/',
+    'Off-White': 'https://www.off---white.com/',
+    'Palace Skateboards': 'https://www.palaceskateboards.com/',
+    'KITH': 'https://kithtokyo.com/',
+    'HUF': 'https://hufworldwide.jp/',
+    'Carhartt WIP': 'https://carhartt-wip.jp/',
+    'X-LARGE': 'https://xlarge.jp/',
+    'Undefeated': 'https://undefeated.jp/',
+
+    // ★ ギャル系ブランド
+    'CECIL McBEE': 'https://cecilmcbee.jp/',
+    'EGOIST': 'https://egoist-store.jp/',
+    'rienda': 'https://www.rienda.vc/',
+    'LIP SERVICE': 'https://lipservice.jp/',
+    'Delyle NOIR': 'https://delyle.jp/', // 公式通販サイトが見当たらない場合があるため、最新情報を確認してください。
+    'DaTuRa': 'https://datura.jp/', // 公式通販サイトが見当たらない場合があるため、最新情報を確認してください。
+    'RESEXXY': 'https://resexxy.runway-webstore.com/',
+    'GYDA': 'https://gyda.jp/',
+    'MOUSSY': 'https://www.moussy.ne.jp/',
+    'SLY': 'https://sly.jp/',
   };
 
   static String getGenreDisplayName(SearchGenre genre) {

@@ -1069,13 +1069,21 @@ $brandListString
                        crossAxisAlignment: CrossAxisAlignment.stretch,
                        children: <Widget>[
                          if (_imageFile == null) ...[
-                           SizedBox(
-                            height: 200,
-                            
+                           Container(
+                            height: 250,
+                           decoration: BoxDecoration(
+                             color: Colors.white12,
+                             borderRadius: BorderRadius.circular(24.0),),
                             child: 
                            
-                           Center(child: Icon(Icons.image_outlined, size: 80, color: Colors.grey[500]))),
-                           const SizedBox(height: 16),
+                           Center(child: 
+                          Column(
+                           mainAxisAlignment: MainAxisAlignment.center, 
+                            children: [
+
+                           Icon(Icons.image_outlined, size: 80, color: Colors.grey[500]),
+
+const SizedBox(height: 16),
                            ElevatedButton.icon(
                              icon: const Icon(Icons.image_search),
                              label: const Text('画像を選択'),
@@ -1087,6 +1095,14 @@ $brandListString
                                textStyle: const TextStyle(fontSize: 16),
                              ),
                            ),
+                          ],) 
+                           
+                           
+                           
+                           
+                           )
+                           ),
+                           
                          ] else ...[
                           // 画像選択後の表示
                           Text(
@@ -1236,7 +1252,7 @@ $brandListString
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '検索ジャンル:',
+                                ' 検索ジャンル:',
                                 style: TextStyle(
                                   color: Colors.grey[300],
                                   fontWeight: FontWeight.bold,
