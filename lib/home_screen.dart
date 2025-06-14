@@ -12,6 +12,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'procuctmodel.dart';
 import 'results_screen.dart';
 import 'brand_data.dart'; // ★ 追加
+import 'genre_settings_screen.dart'; // ★ 追加
 
 // enum SearchGenre { lifestyle, apparel, outdoor, bag, sports, sneakers } // ★ brand_data.dart に移動
 
@@ -35,7 +36,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
   bool _isLoading = false;
   String? _errorMessage;
 
-  final ImagePicker _picker = ImagePicker();
+  final ImagePicker _picker= ImagePicker();
+
+  Map<SearchGenre, bool> _genreVisibility = {}; // ★ 追加: ジャンルの表示状態を管理
+
+    List<SearchGenre> _orderedSearchGenres = SearchGenre.values.toList(); // ★ 追加: ジャンルの表示順を管理
 
   SearchGenre _selectedGenre = SearchGenre.lifestyle; // 初期ジャンル
 
@@ -61,6 +66,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // ライフサイクル監視を開始
+           for (var genre in SearchGenre.values) {
+      _genreVisibility[genre] = true; // 初期状態では全てのジャンルを表示
+    }
     _updateBrandSelectionForGenre(_selectedGenre);
     _loadBannerAd();
     _loadInterstitialAd(); // インタースティシャル広告をロード
@@ -86,6 +94,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
     }
   }
 
+  Future<void> _showGenreSettingsDialog() async { // ★ 変更: GenreSettingsScreen を呼び出す
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GenreSettingsScreen(
+          currentGenreOrder: _orderedSearchGenres,
+          currentGenreVisibility: _genreVisibility,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _orderedSearchGenres = result['order'] as List<SearchGenre>;
+        _genreVisibility = result['visibility'] as Map<SearchGenre, bool>;
+
+        // 選択中のジャンルが非表示になった場合、またはリストから削除された場合
+        if (!(_genreVisibility[_selectedGenre] ?? false) || !_orderedSearchGenres.contains(_selectedGenre)) {
+          SearchGenre? firstVisibleGenre;
+          for (var g in _orderedSearchGenres) {
+            if (_genreVisibility[g] ?? false) {
+              firstVisibleGenre = g;
+              break;
+            }
+          }
+          if (firstVisibleGenre != null) 
+            _updateBrandSelectionForGenre(firstVisibleGenre);
+          } else {
+            // 全てのジャンルが非表示にされた場合、デフォルト（例：lifestyle）を選択
+            // ただし、UI上は何も表示されない可能性がある
+            // _orderedSearchGenres が空になることはない想定だが、念のため
+            if (_orderedSearchGenres.isNotEmpty) {
+              _updateBrandSelectionForGenre(_orderedSearchGenres.firstWhere(
+                (g) => SearchGenre.values.contains(g), // 念のため有効なジャンルか確認
+                orElse: () => SearchGenre.values.first, // フォールバック
+              ));
+            } else {
+               _updateBrandSelectionForGenre(SearchGenre.values.first);
+            }
+          }
+        }
+      });
+    }
+  }
+   
   void _updateBrandSelectionForGenre(SearchGenre genre) {
     setState(() {
       _selectedGenre = genre;
@@ -1063,7 +1116,7 @@ $brandListString
                         ? const NeverScrollableScrollPhysics() 
                         : const BouncingScrollPhysics(),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(.0),
                       child: Column(
                        mainAxisAlignment: MainAxisAlignment.center,
                        crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1251,19 +1304,31 @@ const SizedBox(height: 16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                ' 検索ジャンル:',
-                                style: TextStyle(
-                                  color: Colors.grey[300],
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
+                             Row( // ★ Rowに変更して設定ボタンを追加
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    ' 検索ジャンル:',
+                                    style: TextStyle(
+                                      color: Colors.grey[300],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  IconButton( // ★ 設定ボタンを追加
+                                    icon: Icon(Icons.settings_outlined, color: Colors.grey[400]),
+                                    tooltip: '表示ジャンルを設定',
+                                    onPressed: _showGenreSettingsDialog,
+                                  ),
+                                ],
+                              ), 
                               const SizedBox(height: 10),
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
-                                  children: SearchGenre.values.map((genre) { // ★ SearchGenre.valuesから動的に生成
+                                  children:SearchGenre.values
+                                      .where((genre) => _genreVisibility[genre] ?? true) // ★ 表示するジャンルのみフィルタリング
+                                      .map((genre) { 
                                     bool isSelected = _selectedGenre == genre;
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
