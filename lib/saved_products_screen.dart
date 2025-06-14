@@ -85,10 +85,10 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: darkBackgroundColor,
+      backgroundColor: Colors.black87,
       appBar: AppBar(
         title: const Text('保存した商品', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.grey[850],
+        backgroundColor: Colors.black87,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         actions: [
