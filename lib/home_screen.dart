@@ -13,6 +13,9 @@ import 'procuctmodel.dart';
 import 'results_screen.dart';
 import 'brand_data.dart'; // ★ 追加
 import 'genre_settings_screen.dart'; // ★ 追加
+import 'package:shared_preferences/shared_preferences.dart'; // ★ 追加
+import 'dart:convert'; // jsonDecode/Encode のために追加
+import 'saved_products_screen.dart'; // ★★★ 追加: 後で作成するファイル ★★★
 
 // enum SearchGenre { lifestyle, apparel, outdoor, bag, sports, sneakers } // ★ brand_data.dart に移動
 
@@ -62,14 +65,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
       ? 'ca-app-pub-7148683667182672/5564236103' // AndroidのテストID (Google提供)
       : 'ca-app-pub-7148683667182672/2770551808'; // iOSのテストID (Google提供)
 
+    static const String _genreOrderKey = 'genreOrder';
+  static const String _genreVisibilityKey = 'genreVisibility';
+
   @override
   void initState() {
+        _currentAvailableBrands = []; // ★ 初期値を設定
+    _selectedBrands = {};       // ★ 初期値を設定
     super.initState();
     WidgetsBinding.instance.addObserver(this); // ライフサイクル監視を開始
            for (var genre in SearchGenre.values) {
       _genreVisibility[genre] = true; // 初期状態では全てのジャンルを表示
     }
-    _updateBrandSelectionForGenre(_selectedGenre);
+    _loadGenreSettings().then((_) {
+      // _selectedGenre は _loadGenreSettings で適切にフォールバックされているはず
+      // その後、選択されたジャンルに基づいてブランドリストを更新
+      _updateBrandSelectionForGenre(_selectedGenre);
+    });
     _loadBannerAd();
     _loadInterstitialAd(); // インタースティシャル広告をロード
     // initStateではすぐに表示せず、didChangeAppLifecycleStateで最初のresume時や、
@@ -94,50 +106,149 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
     }
   }
 
+Future<void> _loadGenreSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<SearchGenre> tempOrderedGenres = [];
+    Map<SearchGenre, bool> tempVisibility = {};
+
+    // ジャンルの順序を読み込み
+    final List<String>? savedOrderNames = prefs.getStringList(_genreOrderKey);
+    if (savedOrderNames != null) {
+      for (String name in savedOrderNames) {
+        try {
+          final genre = SearchGenre.values.byName(name);
+          if (!tempOrderedGenres.contains(genre)) { // 重複を避ける
+            tempOrderedGenres.add(genre);
+          }
+        } catch (e) {
+          debugPrint("Saved genre order: Genre '$name' not found in current SearchGenre enum. Skipping.");
+        }
+      }
+    }
+    // 現在のenumに存在するが、保存された順序にないものを末尾に追加
+    for (var genreEnum in SearchGenre.values) {
+      if (!tempOrderedGenres.contains(genreEnum)) {
+        tempOrderedGenres.add(genreEnum);
+      }
+    }
+    // 保存された順序にのみ存在し、現在のenumにないものを削除 (フィルタリング)
+    _orderedSearchGenres = tempOrderedGenres.where((g) => SearchGenre.values.contains(g)).toList();
+
+
+    // ジャンルの表示状態を読み込み
+    final String? savedVisibilityJson = prefs.getString(_genreVisibilityKey);
+    if (savedVisibilityJson != null) {
+      try {
+        final Map<String, dynamic> decodedMap = jsonDecode(savedVisibilityJson);
+        decodedMap.forEach((key, value) {
+          if (value is bool) {
+            try {
+              tempVisibility[SearchGenre.values.byName(key)] = value;
+            } catch (e) {
+              debugPrint("Saved genre visibility: Genre key '$key' not found. Skipping.");
+            }
+          }
+        });
+      } catch (e) {
+        debugPrint("Error decoding genre visibility: $e. Using defaults for missing ones.");
+      }
+    }
+    // 全てのenumメンバーに対して表示状態を確保 (保存されていなかったものはデフォルトでtrue)
+    // _genreVisibility はここで初期化
+    _genreVisibility = {};
+    for (var genreEnum in SearchGenre.values) {
+      _genreVisibility[genreEnum] = tempVisibility[genreEnum] ?? true;
+    }
+
+
+    // 選択中のジャンル(_selectedGenre)が有効か確認し、必要なら更新
+    bool selectedGenreIsValid = _orderedSearchGenres.contains(_selectedGenre) &&
+                                (_genreVisibility[_selectedGenre] ?? false);
+
+    if (!selectedGenreIsValid) {
+      SearchGenre? firstVisibleAndOrderedGenre;
+      for (var genre in _orderedSearchGenres) { // 更新された順序で探す
+        if (_genreVisibility[genre] ?? false) {
+          firstVisibleAndOrderedGenre = genre;
+          break;
+        }
+      }
+      if (firstVisibleAndOrderedGenre != null) {
+        _selectedGenre = firstVisibleAndOrderedGenre;
+      } else {
+        // 表示可能なジャンルが一つもない場合
+        if (_orderedSearchGenres.isNotEmpty) {
+          _selectedGenre = _orderedSearchGenres.first; // 非表示かもしれないが、順序リストの先頭
+        } else {
+          _selectedGenre = SearchGenre.values.first; // Enumの先頭 (フォールバック)
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {}); // UIを更新
+    }
+  }
+
+Future<void> _saveGenreSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final List<String> orderToSave = _orderedSearchGenres.map((g) => g.name).toList();
+    await prefs.setStringList(_genreOrderKey, orderToSave);
+
+    final Map<String, bool> visibilityToSave = {};
+    _genreVisibility.forEach((genre, isVisible) {
+      visibilityToSave[genre.name] = isVisible;
+    });
+    await prefs.setString(_genreVisibilityKey, jsonEncode(visibilityToSave));
+  }
+
   Future<void> _showGenreSettingsDialog() async { // ★ 変更: GenreSettingsScreen を呼び出す
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => GenreSettingsScreen(
-          currentGenreOrder: _orderedSearchGenres,
-          currentGenreVisibility: _genreVisibility,
+          currentGenreOrder: List.from(_orderedSearchGenres), // 変更を伝播させないためにコピーを渡す
+          currentGenreVisibility: Map.from(_genreVisibility), // 同上
         ),
       ),
     );
 
     if (result != null) {
-      setState(() {
-        _orderedSearchGenres = result['order'] as List<SearchGenre>;
-        _genreVisibility = result['visibility'] as Map<SearchGenre, bool>;
+      final newOrder = result['order'] as List<SearchGenre>;
+      final newVisibility = result['visibility'] as Map<SearchGenre, bool>;
+      SearchGenre newSelectedGenre = _selectedGenre; // 現在の選択を保持しようと試みる
 
-        // 選択中のジャンルが非表示になった場合、またはリストから削除された場合
-        if (!(_genreVisibility[_selectedGenre] ?? false) || !_orderedSearchGenres.contains(_selectedGenre)) {
-          SearchGenre? firstVisibleGenre;
-          for (var g in _orderedSearchGenres) {
-            if (_genreVisibility[g] ?? false) {
-              firstVisibleGenre = g;
-              break;
-            }
-          }
-          if (firstVisibleGenre != null) {
-            _updateBrandSelectionForGenre(firstVisibleGenre);
-          } else {
-            // 全てのジャンルが非表示にされた場合、デフォルト（例：lifestyle）を選択
-            // ただし、UI上は何も表示されない可能性がある
-            // _orderedSearchGenres が空になることはない想定だが、念のため
-            if (_orderedSearchGenres.isNotEmpty) {
-              _updateBrandSelectionForGenre(_orderedSearchGenres.firstWhere(
-                (g) => SearchGenre.values.contains(g), // 念のため有効なジャンルか確認
-                orElse: () => SearchGenre.values.first, // フォールバック
-              ));
-            } else {
-               _updateBrandSelectionForGenre(SearchGenre.values.first);
-            }
+      // 新しい設定で現在の選択ジャンルが有効か確認
+      bool currentSelectedStillValid = newOrder.contains(_selectedGenre) && (newVisibility[_selectedGenre] ?? false);
+
+      if (!currentSelectedStillValid) {
+        // 無効なら、新しい順序で最初の表示可能なジャンルを探す
+        SearchGenre? firstVisibleInNewOrder;
+        for (var g in newOrder) {
+          if (newVisibility[g] ?? false) {
+            firstVisibleInNewOrder = g;
+            break;
           }
         }
+        if (firstVisibleInNewOrder != null) {
+          newSelectedGenre = firstVisibleInNewOrder;
+        } else {
+          // 表示可能なジャンルが全くない場合 (フォールバック)
+          newSelectedGenre = newOrder.isNotEmpty ? newOrder.first : SearchGenre.values.first;
+        }
+      }
+      
+      setState(() {
+        _orderedSearchGenres = newOrder;
+        _genreVisibility = newVisibility;
+        _selectedGenre = newSelectedGenre; // _selectedGenre を更新
+        _updateBrandSelectionForGenre(_selectedGenre); // 更新された _selectedGenre でブランドを更新
       });
+      await _saveGenreSettings(); // 設定を永続化
     }
   }
+    
    
   void _updateBrandSelectionForGenre(SearchGenre genre) {
     setState(() {
@@ -1094,6 +1205,18 @@ $brandListString
         title: const Text('ニタモノ検索', style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold)),
         backgroundColor: Colors.black87,
         elevation: 0,
+        actions: [ // ★★★ AppBarにアクションを追加 ★★★
+          IconButton(
+            icon: const Icon(Icons.library_books), // 保存済みリストのアイコン
+            tooltip: '保存した商品を見る',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SavedProductsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -1237,14 +1360,15 @@ const SizedBox(height: 16),
                                 }),
                             ),
                           
-                          const SizedBox(height: 15),
+                          //const SizedBox(height: 15),
                           
                           // 選択範囲の情報表示
                           if (_drawnRect != null)
                             Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 5),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.grey[800]!.withOpacity(0.5),
+                           //     color: Colors.grey[800]!.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -1257,49 +1381,55 @@ const SizedBox(height: 16),
                           const SizedBox(height: 15),
                           
                           // ボタン類
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.refresh, size: 18),
-                                  label: const Text('画像をクリア'),
-                                  onPressed: _resetImageSelection,
-                                  style: ElevatedButton.styleFrom(
-
-                                    backgroundColor: Colors.grey[700],
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 20,horizontal: 5),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.refresh, size: 18),
+                                    label: const Text('画像をクリア'),
+                                    onPressed: _resetImageSelection,
+                                    style: ElevatedButton.styleFrom(
+                            
+                                      backgroundColor: Colors.grey[700],
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 20,horizontal: 5),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                flex: 2,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.science_outlined),
-                                  label: const Text('AIで商品を特定'),
-                                  onPressed: (_isLoading || _drawnRect == null) ? null : _analyzeMarkedRegion,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: (_drawnRect != null) ? darkPrimaryColor : Colors.grey[600],
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.science_outlined),
+                                    label: const Text('AIで商品を特定'),
+                                    onPressed: (_isLoading || _drawnRect == null) ? null : _analyzeMarkedRegion,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: (_drawnRect != null) ? darkPrimaryColor : Colors.grey[600],
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 20),
+                                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                         
-                        const SizedBox(height: 30),
-                        
+                        const SizedBox(height: 15),
+                       Padding(
+                         padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                         child: Divider(thickness: 0.5,color: Colors.white54,),
+                       ) ,
                         // ジャンル選択エリア
                         Container(
-                          padding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 10.0),
+                          padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 0.0),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
-                            border: Border.all(color: Colors.white24, width: 0.5),
-                            borderRadius: BorderRadius.circular(30),
+                           // border: Border.all(color: Colors.white24, width: 0.5),
+                            borderRadius: BorderRadius.circular(0),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1307,12 +1437,15 @@ const SizedBox(height: 16),
                              Row( // ★ Rowに変更して設定ボタンを追加
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    ' 検索ジャンル:',
-                                    style: TextStyle(
-                                      color: Colors.grey[300],
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                  Padding(
+                                    padding: const EdgeInsets.only(left:20),
+                                    child: Text(
+                                      '検索ジャンル:',
+                                      style: TextStyle(
+                                        color: Colors.grey[300],
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
                                     ),
                                   ),
                                   IconButton( // ★ 設定ボタンを追加
@@ -1322,11 +1455,10 @@ const SizedBox(height: 16),
                                   ),
                                 ],
                               ), 
-                              const SizedBox(height: 10),
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
-                                  children:SearchGenre.values
+                                  children:_orderedSearchGenres // ★ _orderedSearchGenres を使用
                                       .where((genre) => _genreVisibility[genre] ?? true) // ★ 表示するジャンルのみフィルタリング
                                       .map((genre) { 
                                     bool isSelected = _selectedGenre == genre;
@@ -1347,13 +1479,14 @@ const SizedBox(height: 16),
                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(24),
+                                          borderRadius:isSelected? BorderRadius.circular(30): BorderRadius.circular(24),
                                           side: BorderSide(
                                             color: isSelected ? Colors.transparent : Colors.transparent,
                                             width: 1.5,
                                           ),
                                         ),
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 20), // ★ パディングを調整
+                                        padding:isSelected?EdgeInsets.symmetric(horizontal: 12, vertical: 25)
+                                        :EdgeInsets.symmetric(horizontal: 12, vertical: 18), // ★ パディングを調整
                                       ),
                                     );
                                   }).toList(),
@@ -1366,10 +1499,11 @@ const SizedBox(height: 16),
 
                         // ブランド選択エリア
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.symmetric(horizontal: 10.0),
+                          padding: const EdgeInsets.all(15),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(25),
                             border: Border.all(color: Colors.white24, width: .5, style: BorderStyle.solid),
                           ),
                           child: Column(

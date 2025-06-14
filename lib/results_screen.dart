@@ -8,6 +8,9 @@ import 'dart:ui' as ui; // ui.Image, ui.Canvasのため
 import 'package:webview_flutter/webview_flutter.dart'; // ★★★ WebViewパッケージをインポート ★★★
 import 'package:flutter/gestures.dart'; // ★★★ gestureRecognizers のために追加 ★★★
 import 'brand_data.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ★★★ 追加 ★★★
+import 'dart:convert'; // ★★★ 追加 ★★★
+import 'saved_products_screen.dart'; // ★★★ 追加: 後で作成するファイル ★★★
 
 class ResultsScreen extends StatefulWidget {
   final List<Product> products;
@@ -55,12 +58,53 @@ class _ResultsScreenState extends State<ResultsScreen> {
       : 'ca-app-pub-7148683667182672/3020009417'; // iOSのテストID
 
 
+  final PreferenceService _preferenceService = PreferenceService(); // ★★★ 追加 ★★★
+  Set<String> _savedProductUrls = {}; // ★★★ 追加 ★★★
+
   @override
   void initState() {
     super.initState();
     // 初期状態でHomeScreenでの選択状態をコピー
     _selectedBrandsForSimilarSearch = Map<String, bool>.from(widget.selectedBrands);
     _loadBannerAd();
+    _loadSavedProductUrls(); // ★★★ 追加 ★★★
+  }
+
+  Future<void> _loadSavedProductUrls() async { // ★★★ 追加 ★★★
+    _savedProductUrls = await _preferenceService.getSavedProductUrls();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _toggleSaveProduct(Product product) async { // ★★★ 追加 ★★★
+    if (product.productUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('商品URLがないため保存できません。'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+    final isCurrentlySaved = _savedProductUrls.contains(product.productUrl);
+    if (isCurrentlySaved) {
+      await _preferenceService.removeProduct(product.productUrl);
+      _savedProductUrls.remove(product.productUrl);
+       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('「${product.productName}」を保存済みから削除しました。'), backgroundColor: Colors.grey[700]),
+        );
+      }
+    } else {
+      await _preferenceService.saveProduct(product);
+      _savedProductUrls.add(product.productUrl);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('「${product.productName}」を保存しました。'), backgroundColor: darkAccentColor),
+        );
+      }
+    }
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _loadBannerAd() {
@@ -102,6 +146,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
         backgroundColor: Colors.grey[850],
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
+        actions: [ // ★★★ AppBarにアクションを追加 ★★★
+          IconButton(
+            icon: const Icon(Icons.library_books), // 保存済みリストのアイコン
+            tooltip: '保存した商品を見る',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SavedProductsScreen()),
+              ).then((_) => _loadSavedProductUrls()); // 戻ってきたときにリストを再読み込み
+            },
+          ),
+        ],
       ),
       body: Column( // bodyをColumnでラップ
         children: [
@@ -232,6 +288,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       itemCount: widget.products.length,
       itemBuilder: (context, index) {
         final product = widget.products[index];
+        final bool isSaved = _savedProductUrls.contains(product.productUrl); // ★★★ 追加 ★★★
         return Card(
           color: darkCardColor,
           elevation: 2,
@@ -387,7 +444,8 @@ Expanded(
   }
 
   // ★★★ 類似商品アイテムを1つ表示するためのヘルパーウィジェット ★★★
-  Widget _buildSingleSimilarProductItem(BuildContext context, Product product, BuildContext sheetContext) {
+  Widget _buildSingleSimilarProductItem(BuildContext context, Product product, BuildContext sheetContext, StateSetter setSheetState) { // ★★★ setSheetState を引数に追加 ★★★
+    final bool isSaved = _savedProductUrls.contains(product.productUrl); // ★★★ 追加 ★★★
     return Card(
       color: Colors.grey[800]!.withOpacity(0.8),
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -397,19 +455,41 @@ Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              '${product.emoji ?? ''} ${product.productName}', // 絵文字を表示
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)
+            Row( // ★★★ Rowで囲む ★★★
+              children: [
+                Expanded(
+                  child: Text(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    '${product.emoji ?? ''} ${product.productName}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)
+                  ),
+                ),
+                if (product.productUrl.isNotEmpty) // ★★★ URLがある場合のみ保存ボタン表示 ★★★
+                  IconButton( // ★★★ 保存ボタン ★★★
+                    icon: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      color: isSaved ? darkAccentColor : Colors.grey[300],
+                      size: 24, // 少し小さく
+                    ),
+                    tooltip: isSaved ? '保存済み (タップして解除)' : '保存する',
+                    onPressed: () async {
+                      await _toggleSaveProduct(product);
+                      // ボトムシート内の状態も更新するために setSheetState を呼ぶ
+                      // また、メイン画面の _savedProductUrls も更新されているので、
+                      // ボトムシートを閉じて再度開いたときにも正しい状態が反映される
+                      if (sheetContext.mounted) {
+                        setSheetState(() {}); // ボトムシート内のUIを更新
+                      }
+                    },
+                  ),
+              ],
             ),
-            const SizedBox(height: 4),
             Chip(
               label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
               backgroundColor: Colors.grey[700]!.withOpacity(0.7),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            const SizedBox(height: 12),
             Row(
               children: [
                 Icon(Icons.straighten, size: 16, color: Colors.grey.shade400),
@@ -417,7 +497,6 @@ Expanded(
                 Text(_formatSize(product.size), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[300])),
               ],
             ),
-            const SizedBox(height: 8),
             Text(
               product.description,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[400]),
@@ -659,7 +738,8 @@ child: Center(
                                     itemBuilder: (context, index) {
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                        child: _buildSingleSimilarProductItem(context, similarProducts[index], sheetContext),
+                                        // ★★★ setSheetState を渡す ★★★
+                                        child: _buildSingleSimilarProductItem(context, similarProducts[index], sheetContext, setSheetState),
                                       );
                                     },
                                   ),
