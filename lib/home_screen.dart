@@ -119,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
               break;
             }
           }
-          if (firstVisibleGenre != null) 
+          if (firstVisibleGenre != null) {
             _updateBrandSelectionForGenre(firstVisibleGenre);
           } else {
             // 全てのジャンルが非表示にされた場合、デフォルト（例：lifestyle）を選択
