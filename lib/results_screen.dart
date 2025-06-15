@@ -806,13 +806,19 @@ child: Center(
                                                 boxShadow: [
                                                   BoxShadow(
                                                     color: Colors.black.withOpacity(0.3),
-                                                    spreadRadius: 1,
+                                                   spreadRadius: 1,
                                                     blurRadius: 3,
                                                     offset: const Offset(0, 1),
                                                   ),
                                                 ],
                                               ),
                                               child: PopupMenuButton<int>(
+                                                menuPadding: EdgeInsets.all(15),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(20),
+                                                ),
+                                                color: Colors.white,
+                                                surfaceTintColor: Colors.white,
                                                 icon: const Icon(Icons.list, color: Colors.black),
                                                 tooltip: 'ニタモノ商品を選択',
                                                 onSelected: (int index) {

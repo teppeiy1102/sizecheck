@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart'; 
-import 'brand_data.dart'; 
+import 'package:url_launcher/url_launcher.dart';
+import 'brand_data.dart';
 import 'package:collection/collection.dart'; // ★ ListEquality と MapEquality のために追加
+import 'package:google_mobile_ads/google_mobile_ads.dart'; // ★★★ 追加 ★★★
+import 'dart:io'; // ★★★ 追加 ★★★
 
 class GenreSettingsScreen extends StatefulWidget {
   final List<SearchGenre> currentGenreOrder;
@@ -24,6 +26,13 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
   late List<SearchGenre> _initialGenreOrder; // ★ 追加: 初期状態を保ｘｗ
   late Map<SearchGenre, bool> _initialGenreVisibility; // ★ 追加: 初期状態を保持
 
+  // ★★★ バナー広告関連の変数 ★★★
+  BannerAd? _bannerAd;
+  bool _isBannerAdLoaded = false;
+  final String _bannerAdUnitId = Platform.isAndroid
+      ? 'ca-app-pub-7148683667182672/9797170752' // AndroidのテストID
+      : 'ca-app-pub-7148683667182672/3020009417'; // iOSのテストID
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +42,40 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
     // ★ 初期状態をディープコピーして保存
     _initialGenreOrder = List.from(widget.currentGenreOrder);
     _initialGenreVisibility = Map.from(widget.currentGenreVisibility);
+    _loadBannerAd(); // ★★★ バナー広告をロード ★★★
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose(); // ★★★ バナー広告を破棄 ★★★
+    super.dispose();
+  }
+
+  // ★★★ バナー広告をロードするメソッド ★★★
+  void _loadBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: _bannerAdUnitId,
+      request: const AdRequest(),
+      size: AdSize.largeBanner,
+      listener: BannerAdListener(
+        onAdLoaded: (Ad ad) {
+          if (mounted) {
+            setState(() {
+              _isBannerAdLoaded = true;
+            });
+          }
+        },
+        onAdFailedToLoad: (Ad ad, LoadAdError error) {
+          ad.dispose();
+          debugPrint('BannerAd failed to load: $error');
+          if (mounted) {
+            setState(() {
+              _isBannerAdLoaded = false;
+            });
+          }
+        },
+      ),
+    )..load();
   }
 
   // ★ 変更があったかどうかを判定するメソッド
@@ -56,7 +99,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
       barrierDismissible: false, // ダイアログ外タップで閉じない
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF2c2c2e),
+          backgroundColor: Colors.grey[800], // ダークな背景色
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
           title: const Text('変更の確認', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           content: const Text('編集内容が保存されていません。\n変更を破棄して戻りますか？', style: TextStyle(color: Colors.white70)),
@@ -101,11 +144,11 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           insetPadding: const EdgeInsets.all(.0),
-          backgroundColor: const Color(0xFF2c2c2e), // ダークな背景色
+          backgroundColor: Colors.black87, // ダークな背景色
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
           title: Text(
             '$genreName のブランド情報',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
             width: double.maxFinite,
@@ -118,7 +161,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
                 final brandDescription = BrandData.brandDescriptions[brandName] ?? '説明はありません。';
 
                 return Card(
-                  color: const Color(0xFF3a3a3c), // カードの背景色
+                  color: Colors.white12,
                   margin: const EdgeInsets.symmetric(vertical: 6.0),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
                   child: Padding(
@@ -194,12 +237,12 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
         backgroundColor: const Color(0xFF2c2c2e),
         appBar: AppBar(
           title: const Text('検索ジャンル設定', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.transparent, 
-          elevation: 0, 
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           flexibleSpace: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [const Color(0xFF3a3a3c), const Color(0xFF2c2c2e)], 
+                colors: [const Color(0xFF3a3a3c), const Color(0xFF2c2c2e)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -216,62 +259,74 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
                   'visibility': _editableGenreVisibility,
                 });
               },
-              child: const Text('保存', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 16, fontWeight: FontWeight.bold)),
-            )
-          ],
-        ),
-        body: ReorderableListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          itemCount: _editableGenreOrder.length,
-          itemBuilder: (context, index) {
-            final genre = _editableGenreOrder[index];
-            return SwitchListTile(
-              key: ValueKey(genre),
-              tileColor: const Color(0xFF2c2c2e), // タイルの背景色
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              title: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.info_outline, color: Colors.white70),
-                    tooltip: 'ブランド情報',
-                    onPressed: () {
-                      _showBrandInfoDialog(context, genre);
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      BrandData.getGenreDisplayName(genre),
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+              child: const Text('保存', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 16, )),
+        ),]),
+        body: Column( // ★★★ ReorderableListViewと広告を縦に並べるためにColumnを追加 ★★★
+          children: [
+            Expanded( // ★★★ ReorderableListView.builderをExpandedでラップ ★★★
+              child: ReorderableListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                itemCount: _editableGenreOrder.length,
+                itemBuilder: (context, index) {
+                  final genre = _editableGenreOrder[index];
+                  return SwitchListTile(
+                    key: ValueKey(genre),
+                    tileColor: const Color(0xFF2c2c2e), // タイルの背景色
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    title: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.info_outline, color: Colors.white70),
+                          tooltip: 'ブランド情報',
+                          onPressed: () {
+                            _showBrandInfoDialog(context, genre);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            BrandData.getGenreDisplayName(genre),
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    value: _editableGenreVisibility[genre] ?? true,
+                    onChanged: (bool value) {
+                      setState(() {
+                        _editableGenreVisibility[genre] = value;
+                      });
+                    },
+                    activeColor: Colors.lightBlueAccent, // スイッチのオンの色
+                    inactiveTrackColor: Colors.grey[700],
+                    secondary: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.drag_handle, color: Colors.white54),
+                      ],
+                    ),
+                  );
+                },
+                onReorder: (oldIndex, newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) {
+                      newIndex -= 1;
+                    }
+                    final SearchGenre item = _editableGenreOrder.removeAt(oldIndex);
+                    _editableGenreOrder.insert(newIndex, item);
+                  });
+                },
               ),
-              value: _editableGenreVisibility[genre] ?? true,
-              onChanged: (bool value) {
-                setState(() {
-                  _editableGenreVisibility[genre] = value;
-                });
-              },
-              activeColor: Colors.lightBlueAccent, // スイッチのオンの色
-              inactiveTrackColor: Colors.grey[700],
-              secondary: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.drag_handle, color: Colors.white54),
-                ],
+            ),
+            // ★★★ バナー広告表示エリア ★★★
+            if (_bannerAd != null && _isBannerAdLoaded)
+              Container(
+                alignment: Alignment.center,
+                width: _bannerAd!.size.width.toDouble(),
+                height: _bannerAd!.size.height.toDouble(),
+                child: AdWidget(ad: _bannerAd!),
               ),
-            );
-          },
-          onReorder: (oldIndex, newIndex) {
-            setState(() {
-              if (newIndex > oldIndex) {
-                newIndex -= 1;
-              }
-              final SearchGenre item = _editableGenreOrder.removeAt(oldIndex);
-              _editableGenreOrder.insert(newIndex, item);
-            });
-          },
+          ],
         ),
       ),
     );

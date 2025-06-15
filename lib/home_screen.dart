@@ -1202,12 +1202,12 @@ $brandListString
       backgroundColor: darkBackgroundColor,
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('ニタモノ検索', style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold)),
+        title: const Text('ニタモノ検索', style: TextStyle(color: Colors.white60,)),
         backgroundColor: Colors.black87,
         elevation: 0,
         actions: [ // ★★★ AppBarにアクションを追加 ★★★
           IconButton(
-            icon: const Icon(Icons.library_books), // 保存済みリストのアイコン
+            icon: const Icon(Icons.library_books,color: Colors.white60,), // 保存済みリストのアイコン
             tooltip: '保存した商品を見る',
             onPressed: () {
               Navigator.push(
@@ -1281,10 +1281,13 @@ const SizedBox(height: 16),
                            
                          ] else ...[
                           // 画像選択後の表示
-                          Text(
-                            '画像をドラッグして特定する商品を囲んでください。先に横方向にドラッグする必要があります。',
-                            style: TextStyle(color: Colors.grey[300], fontSize: 16, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center,
+                          Padding(
+                            padding: const EdgeInsets.only(top:8.0,left:20,right: 20),
+                            child: Text(
+                              '画像をドラッグして特定する商品を囲んでください。先に横方向にドラッグする必要があります。',
+                              style: TextStyle(color: Colors.grey[300], fontSize: 14, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                           const SizedBox(height: 10),
                           
