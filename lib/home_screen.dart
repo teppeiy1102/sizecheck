@@ -1220,6 +1220,42 @@ $brandListString
       ),
       body: Stack(
         children: [
+ Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black87,
+                         const ui.Color.fromARGB(255, 112, 112, 112),
+                          Colors.black87,
+                          Colors.black87,
+                          Colors.black87,
+                          Colors.black87,
+                         const ui.Color.fromARGB(255, 27, 27, 27),
+                          Colors.black87,
+                         ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+            
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [
+                         const ui.Color.fromARGB(255, 123, 111, 143),
+                         const ui.Color.fromARGB(255, 46, 31, 70),
+                          Colors.transparent,
+                          Colors.transparent,
+                         ],
+                         center: Alignment(0.7,-0.6)
+                      ),
+                    ),
+                        ),
+          ),
           Column(
             children: [
               Expanded(
@@ -1227,10 +1263,14 @@ $brandListString
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Colors.black54,
-                       Colors.grey[800]!
+                        Colors.black12,
+                        Colors.black12,
+                       const ui.Color.fromARGB(143, 60, 94, 92),
+                        Colors.black12,
+                        Colors.black12,
+                       const ui.Color.fromARGB(143, 95, 95, 95),
                        ],
-                      begin: Alignment.topCenter,
+                      begin: Alignment.topRight,
                       end: Alignment.bottomCenter,
                     ),
                   ),
@@ -1248,7 +1288,8 @@ $brandListString
                            Container(
                             height: 250,
                            decoration: BoxDecoration(
-                             color: Colors.white12,
+                             color: Colors.black54,
+                             border: Border.all(color: Colors.white30, width: 2),
                              borderRadius: BorderRadius.circular(24.0),),
                             child: 
                            
@@ -1257,7 +1298,7 @@ $brandListString
                            mainAxisAlignment: MainAxisAlignment.center, 
                             children: [
 
-                           Icon(Icons.image_outlined, size: 80, color: Colors.grey[500]),
+                           Icon(Icons.image_outlined, size: 100, color: Colors.white70),
 
 const SizedBox(height: 16),
                            ElevatedButton.icon(
@@ -1265,10 +1306,11 @@ const SizedBox(height: 16),
                              label: const Text('画像を選択'),
                              onPressed: () => _showImageSourceDialog(context),
                              style: ElevatedButton.styleFrom(
-                               backgroundColor: darkPrimaryColor,
+                               backgroundColor: Colors.white24,
                                foregroundColor: Colors.white,
-                               padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 30),
-                               textStyle: const TextStyle(fontSize: 16),
+                               padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 40),
+                               textStyle: const TextStyle(fontSize: 14),
+                               side: const BorderSide(color: Colors.white30, width: 2),
                              ),
                            ),
                           ],) 
@@ -1468,6 +1510,8 @@ const SizedBox(height: 16),
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
                                       child: ChoiceChip(
+                                        shadowColor: Colors.red,
+                                        elevation:isSelected? 5:0,
                                         label: Text(BrandData.getGenreDisplayName(genre)), // ★ 表示名を取得
                                         selected: isSelected,
                                         onSelected: (bool selected) {
@@ -1475,8 +1519,8 @@ const SizedBox(height: 16),
                                             _updateBrandSelectionForGenre(genre);
                                           }
                                         },
-                                        backgroundColor: Colors.grey[800],
-                                        selectedColor: Colors.white.withOpacity(0.2),
+                                        backgroundColor: Colors.black87,
+                                        selectedColor: Colors.white,
                                         labelStyle: TextStyle(
                                           color: isSelected ? Colors.black : Colors.white,
                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

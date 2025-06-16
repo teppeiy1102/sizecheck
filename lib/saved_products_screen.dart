@@ -27,9 +27,9 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
   SortCriteria _currentSortCriteria = SortCriteria.savedDateDesc;
 
   // ★★★ Apple風デザインのためのカラーパレット ★★★
-  final Color appBarColor = const Color(0xFF1C1C1E); // AppBarの背景色 (濃いグレー)
-  final Color scaffoldStartColor = const Color(0xFF2C2C2E); // 背景グラデーション開始色 (やや明るいグレー)
-  final Color scaffoldEndColor = const Color(0xFF000000);   // 背景グラデーション終了色 (黒)
+  final Color appBarColor = Colors.black; // AppBarの背景色 (濃いグレー)
+  final Color scaffoldStartColor = Colors.black; // グラデーションの始点はやや明るいグレー
+  final Color scaffoldEndColor = Colors.black87; // グラデーションの終点は濃いグレー
   final Color cardBackgroundColor = const Color.fromRGBO(44, 44, 46, 0.85); // カード背景 (半透明の濃いグレー)
   final Color chipBackgroundColor = const Color.fromRGBO(60, 60, 62, 0.8); // チップ背景 (半透明のやや明るいグレー)
   final Color primaryTextColor = Colors.white.withOpacity(0.9);

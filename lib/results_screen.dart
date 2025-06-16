@@ -451,7 +451,7 @@ Expanded(
   Widget _buildSingleSimilarProductItem(BuildContext context, Product product, BuildContext sheetContext, StateSetter setSheetState) { // ★★★ setSheetState を引数に追加 ★★★
     final bool isSaved = _savedProductUrls.contains(product.productUrl); // ★★★ 追加 ★★★
     return Card(
-      color: Colors.white12,
+      color: Colors.black38,
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
@@ -663,7 +663,7 @@ Expanded(
                     decoration: BoxDecoration(
                       gradient: LinearGradient( // グラデーションの色を半透明に調整
                         colors: [
-                          darkBottomSheetBackgroundColorStart.withOpacity(0.85), // 半透明度を調整
+                          const Color.fromARGB(26, 129, 129, 129), // 半透明度を調整
                           darkBottomSheetBackgroundColorEnd.withOpacity(0.95),   // 半透明度を調整
                         ],
                         begin: Alignment.topCenter,
@@ -673,8 +673,12 @@ Expanded(
                         topLeft: Radius.circular(40),
                         topRight: Radius.circular(40),
                       ),
+                      border: Border.all(
+                        color: Colors.grey[800]!, // 枠線の色を調整
+                        width: 1.0,
+                      ),
                     ),
-                    padding: const EdgeInsets.only(top:8.0, left:16.0, right:16.0, bottom: 0),
+                    padding: const EdgeInsets.only(top:8.0, left:.0, right:.0, bottom: 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -694,7 +698,7 @@ Expanded(
                           Expanded(child: Center(child: Text('ニタモノ商品が見つかりませんでした。', style: TextStyle(color: Colors.grey[400], fontSize: 16)))),
                         if (!isWebViewExpanded) // ★★★ WebViewが拡大されていない時だけ表示 ★★★
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
+                            padding: const EdgeInsets.only(bottom: 8.0,left:10),
                             child: Text(
                               '${originalProduct.emoji ?? ''} 「${originalProduct.productName}」のニタモノ商品',
                               style:TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
@@ -704,7 +708,7 @@ Expanded(
                           ),
                           if (!isWebViewExpanded && !isLoadingSimilar && similarProducts.isNotEmpty) // ★★★ WebViewが拡大されていない時だけ表示 ★★★
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 4.0), // 少し詰める
+                              padding: const EdgeInsets.only(bottom: 4.0,left:10), // 少し詰める
                               child: Text(
                                 '${similarProducts.length} 件の候補', // 表示変更
                                 style: TextStyle(color: Colors.grey[400], fontSize: 14),
