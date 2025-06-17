@@ -1451,7 +1451,7 @@ const SizedBox(height: 16),
                                     label: const Text('AIで商品を特定'),
                                     onPressed: (_isLoading || _drawnRect == null) ? null : _analyzeMarkedRegion,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: (_drawnRect != null) ? darkPrimaryColor : Colors.grey[600],
+                                      backgroundColor: (_drawnRect != null) ? const ui.Color.fromARGB(255, 231, 98, 255) : Colors.grey[600],
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(vertical: 20),
                                       textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -1578,6 +1578,7 @@ const SizedBox(height: 16),
                               color: Colors.red.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.red.withOpacity(0.3)),
+
                             ),
                             child: Text(
                               _errorMessage!,
@@ -1605,10 +1606,11 @@ const SizedBox(height: 16),
           ),
           if (_isLoading)
             Container(
+              height: double.infinity,
               color: Colors.black.withOpacity(0.5),
               child: Center(
                 child: Column(
-                 // mainAxisAlignment: .center,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkPrimaryColor)),
                     const SizedBox(height: 20),
@@ -1734,7 +1736,7 @@ class ImageDrawingPainter extends CustomPainter {
     final Paint rectPaint = Paint()
       ..color = Colors.red.withOpacity(0.8)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
+      ..strokeWidth = 4.0;
 
     final Paint fillPaint = Paint()
       ..color = Colors.red.withOpacity(0.1)
