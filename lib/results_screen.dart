@@ -137,6 +137,36 @@ class _ResultsScreenState extends State<ResultsScreen> {
     super.dispose();
   }
 
+  // ▼▼▼▼▼ ここからが変更箇所 (地図検索メソッドの追加) ▼▼▼▼▼
+  /// 地図アプリを起動してブランド店舗を検索するメソッド
+  Future<void> _openMapForBrand(Product product) async {
+    // ブランド名に「店舗」を加えて検索クエリを作成し、URLエンコードする
+    final query = Uri.encodeComponent('${product.brand} 店舗');
+
+    // プラットフォームに応じて適切な地図URLを生成
+    final Uri mapUri;
+    if (Platform.isIOS) {
+      // iOSの場合はApple MapsのURLスキームを使用
+      mapUri = Uri.parse('https://maps.apple.com/?q=$query');
+    } else {
+      // Androidやその他のプラットフォームではGoogle MapsのWeb URLを使用
+      mapUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    }
+
+    // URLを外部アプリケーションで開く試行
+    if (!await launchUrl(mapUri, mode: LaunchMode.externalApplication)) {
+      // 失敗した場合、ユーザーに通知
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('地図アプリを開けませんでした。', style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+  // ▲▲▲▲▲ ここまでが変更箇所 ▲▲▲▲▲
 
   @override
   Widget build(BuildContext context) {
@@ -363,11 +393,26 @@ Expanded(
 
                   ],),
                const SizedBox(height: 4),
-                Chip(
-                  label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
-                  backgroundColor: darkChipColor.withOpacity(0.7),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+               // ▼▼▼▼▼ ここからが変更箇所 (地図アイコンの追加) ▼▼▼▼▼
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Chip(
+                      label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
+                      backgroundColor: darkChipColor.withOpacity(0.7),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => _openMapForBrand(product),
+                      icon: const Icon(Icons.map_outlined, color: Colors.lightBlueAccent),
+                      tooltip: '店舗を地図で探す',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
+                // ▲▲▲▲▲ ここまでが変更箇所 ▲▲▲▲▲
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -489,11 +534,26 @@ Expanded(
                   ),
               ],
             ),
-            Chip(
-              label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
-              backgroundColor: Colors.grey[700]!.withOpacity(0.7),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            // ▼▼▼▼▼ ここからが変更箇所 (地図アイコンの追加) ▼▼▼▼▼
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Chip(
+                  label: Text(product.brand, style: TextStyle(color: Colors.white.withOpacity(0.9))),
+                  backgroundColor: Colors.grey[700]!.withOpacity(0.7),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _openMapForBrand(product),
+                  icon: const Icon(Icons.map_outlined, color: Colors.lightBlueAccent, size: 24),
+                  tooltip: '店舗を地図で探す',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
             ),
+            // ▲▲▲▲▲ ここまでが変更箇所 ▲▲▲▲▲
             Row(
               children: [
                 Icon(Icons.straighten, size: 16, color: Colors.grey.shade400),
