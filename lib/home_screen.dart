@@ -249,84 +249,17 @@ Future<void> _saveGenreSettings() async {
     }
   }
     
-   
-  void _updateBrandSelectionForGenre(SearchGenre genre) {
+      void _updateBrandSelectionForGenre(SearchGenre genre) {
     setState(() {
       _selectedGenre = genre;
-      if (_selectedGenre == SearchGenre.lifestyle) {
-        _currentAvailableBrands = List.from(BrandData.availableLifestyleBrands);
-      } else if (_selectedGenre == SearchGenre.apparel) {
-        _currentAvailableBrands = List.from(BrandData.availableApparelBrands);
-      } else if (_selectedGenre == SearchGenre.outdoor) {
-        _currentAvailableBrands = List.from(BrandData.availableOutdoorBrands);
-      } else if (_selectedGenre == SearchGenre.bag) {
-        _currentAvailableBrands = List.from(BrandData.availableBagBrands);
-      } else if (_selectedGenre == SearchGenre.sports) {
-        _currentAvailableBrands = List.from(BrandData.availableSportsBrands);
-      } else if (_selectedGenre == SearchGenre.sneakers) {
-        _currentAvailableBrands = List.from(BrandData.availableSneakersBrands);
-      } else if (_selectedGenre == SearchGenre.furniture) {
-        _currentAvailableBrands = List.from(BrandData.availableFurnitureBrands);
-      } else if (_selectedGenre == SearchGenre.kitchenware) {
-        _currentAvailableBrands = List.from(BrandData.availableKitchenwareBrands);
-      } else if (_selectedGenre == SearchGenre.homedecor) {
-        _currentAvailableBrands = List.from(BrandData.availableHomedecorBrands);
-      } else if (_selectedGenre == SearchGenre.beddingbath) {
-        _currentAvailableBrands = List.from(BrandData.availableBeddingbathBrands);
-      } else if (_selectedGenre == SearchGenre.jewelry) {
-        _currentAvailableBrands = List.from(BrandData.availableJewelryBrands);
-      } else if (_selectedGenre == SearchGenre.watches) {
-        _currentAvailableBrands = List.from(BrandData.availableWatchesBrands);
-      } else if (_selectedGenre == SearchGenre.eyewear) {
-        _currentAvailableBrands = List.from(BrandData.availableEyewearBrands);
-      } else if (_selectedGenre == SearchGenre.electronics) {
-        _currentAvailableBrands = List.from(BrandData.availableElectronicsBrands);
-      } else if (_selectedGenre == SearchGenre.audiodevices) {
-        _currentAvailableBrands = List.from(BrandData.availableAudiodevicesBrands);
-      } else if (_selectedGenre == SearchGenre.cameras) {
-        _currentAvailableBrands = List.from(BrandData.availableCamerasBrands);
-      } else if (_selectedGenre == SearchGenre.stationery) {
-        _currentAvailableBrands = List.from(BrandData.availableStationeryBrands);
-      } else if (_selectedGenre == SearchGenre.musicalinstruments) {
-        _currentAvailableBrands = List.from(BrandData.availableMusicalinstrumentsBrands);
-      } else if (_selectedGenre == SearchGenre.beauty) {
-        _currentAvailableBrands = List.from(BrandData.availableBeautyBrands);
-      } else if (_selectedGenre == SearchGenre.healthcare) {
-        _currentAvailableBrands = List.from(BrandData.availableHealthcareBrands);
-      } else if (_selectedGenre == SearchGenre.petsupplies) {
-        _currentAvailableBrands = List.from(BrandData.availablePetsuppliesBrands);
-      } else if (_selectedGenre == SearchGenre.apparelHighBrand) {
-        _currentAvailableBrands = List.from(BrandData.availableApparelHighBrandBrands);
-      } else if (_selectedGenre == SearchGenre.furnitureHighBrand) {
-        _currentAvailableBrands = List.from(BrandData.availableFurnitureHighBrandBrands);
-      } else if (_selectedGenre == SearchGenre.bagHighBrand) {
-        _currentAvailableBrands = List.from(BrandData.availableBagHighBrandBrands);
-      } else if (_selectedGenre == SearchGenre.jewelryHighBrand) {
-        _currentAvailableBrands = List.from(BrandData.availableJewelryHighBrandBrands);
-      } else if (_selectedGenre == SearchGenre.fitness) {
-        _currentAvailableBrands = List.from(BrandData.availableFitnessBrands);
-      } else if (_selectedGenre == SearchGenre.bicycle) {
-        _currentAvailableBrands = List.from(BrandData.availableBicycleBrands);
-      } else if (_selectedGenre == SearchGenre.bicycleSports) {
-        _currentAvailableBrands = List.from(BrandData.availableBicycleSportsBrands);
-      } else if (_selectedGenre == SearchGenre.vintageClothing) {
-        _currentAvailableBrands = List.from(BrandData.availableVintageClothingShops);
-      } else if (_selectedGenre == SearchGenre.antiques) {
-        _currentAvailableBrands = List.from(BrandData.availableAntiquesShops);
-      } else if (_selectedGenre == SearchGenre.streetStyle) {
-        _currentAvailableBrands = List.from(BrandData.availableStreetStyleBrands);
-      } else if (_selectedGenre == SearchGenre.gyaruStyle) {
-        _currentAvailableBrands = List.from(BrandData.availableGyaruStyleBrands);
-      } else if (_selectedGenre == SearchGenre.japaneseDesigner) { // ★ 追加
-        _currentAvailableBrands = List.from(BrandData.availableJapaneseDesignerBrands); // ★ 追加
-      } else {
-        _currentAvailableBrands = [];
-      }
+      // BrandData.getBrandNamesForGenre を呼び出して、ジャンルに対応するブランドリストを取得します。
+      _currentAvailableBrands = BrandData.getBrandNamesForGenre(genre);
+
       // 常にすべてのブランドを選択状態にする
       _selectedBrands = {for (var brand in _currentAvailableBrands) brand: true};
     });
   }
-
+  
   void _loadBannerAd() {
     _bannerAd = BannerAd(
       adUnitId: _bannerAdUnitId,
