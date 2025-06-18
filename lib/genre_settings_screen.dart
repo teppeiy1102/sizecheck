@@ -4,6 +4,7 @@ import 'brand_data.dart';
 import 'package:collection/collection.dart'; // ★ ListEquality と MapEquality のために追加
 import 'package:google_mobile_ads/google_mobile_ads.dart'; // ★★★ 追加 ★★★
 import 'dart:io'; // ★★★ 追加 ★★★
+import 'package:flutter/services.dart'; // 検索バーで必要なら
 
 class GenreSettingsScreen extends StatefulWidget {
   final List<SearchGenre> currentGenreOrder;
@@ -32,6 +33,11 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
       ? 'ca-app-pub-7148683667182672/9797170752'
       : 'ca-app-pub-7148683667182672/3020009417';
 
+  final TextEditingController _genreSearchController = TextEditingController();
+  final TextEditingController _brandSearchController = TextEditingController();
+  String _genreSearchQuery = '';
+  String _brandSearchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +52,8 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
   @override
   void dispose() {
     _bannerAd?.dispose();
+    _genreSearchController.dispose();
+    _brandSearchController.dispose();
     super.dispose();
   }
 
@@ -129,15 +137,58 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
     return shouldPop ?? false; // ダイアログが予期せず閉じられた場合は戻らない
   }
 
-  Future<void> _showBrandInfoDialog(BuildContext context, SearchGenre genre) async {
-    final brands = BrandData.getBrandsForGenre(genre);
-    final genreName = BrandData.getGenreDisplayName(genre);
+  // ★ ハイライト用メソッド
+  TextSpan _highlightText(String text, String query) {
+    if (query.isEmpty) return TextSpan(text: text);
+    final matches = RegExp(RegExp.escape(query), caseSensitive: false).allMatches(text);
+    if (matches.isEmpty) return TextSpan(text: text);
 
-    if (brands.isEmpty) {
+    List<TextSpan> spans = [];
+    int last = 0;
+    for (final m in matches) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: text.substring(last, m.start)));
+      }
+      spans.add(TextSpan(
+        text: text.substring(m.start, m.end),
+        style: const TextStyle(backgroundColor: Colors.yellow, color: Colors.black),
+      ));
+      last = m.end;
+    }
+    if (last < text.length) {
+      spans.add(TextSpan(text: text.substring(last)));
+    }
+    return TextSpan(children: spans);
+  }
+
+  // ★ 全ジャンル横断ブランド検索ダイアログ
+  Future<void> _showAllBrandSearchDialog(BuildContext context, String query) async {
+    final allGenres = BrandData.getAllGenres();
+    final Map<SearchGenre, List<String>> genreToBrands = {};
+
+    // 検索クエリを正規化
+    final q = query.trim().toLowerCase();
+
+    for (final genre in allGenres) {
+      final brands = BrandData.getBrandsForGenre(genre);
+      final filtered = brands.where((brandName) {
+        final desc = BrandData.brandDescriptions[brandName] ?? '';
+        final url = BrandData.brandTopPageUrls[brandName] ?? '';
+        // すべて小文字化して比較
+        return brandName.toLowerCase().contains(q) ||
+            desc.toLowerCase().contains(q) ||
+            url.toLowerCase().contains(q);
+      }).toList();
+      if (filtered.isNotEmpty) {
+        genreToBrands[genre] = filtered;
+      }
+    }
+
+    if (genreToBrands.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$genreName に登録されているブランドはありません。', style: const TextStyle(color: Colors.white)),
+            content: Text('検索条件に一致するブランドはありません。', style: const TextStyle(color: Colors.white)),
             backgroundColor: Colors.grey[800],
           ),
         );
@@ -150,76 +201,93 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           insetPadding: const EdgeInsets.all(.0),
-          backgroundColor: Colors.black87, // ダークな背景色
+          backgroundColor: Colors.black87,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
           title: Text(
-            '$genreName のブランド情報',
+            'ブランド横断検索結果',
             style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
             width: double.maxFinite,
-            child: ListView.builder(
+            child: ListView(
               shrinkWrap: true,
-              itemCount: brands.length,
-              itemBuilder: (BuildContext context, int index) {
-                final brandName = brands[index];
-                final brandUrl = BrandData.brandTopPageUrls[brandName];
-                final brandDescription = BrandData.brandDescriptions[brandName] ?? '説明はありません。';
-
-                return Card(
-                  color: Colors.white12,
-                  margin: const EdgeInsets.symmetric(vertical: 6.0),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          brandName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                            color: Colors.white,
-                          ),
+              children: genreToBrands.entries.map((entry) {
+                final genre = entry.key;
+                final brands = entry.value;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        BrandData.getGenreDisplayName(genre),
+                        style: const TextStyle(
+                          color: Colors.lightBlueAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          brandDescription,
-                          style: TextStyle(color: Colors.white.withOpacity(0.8)),
-                        ),
-                        if (brandUrl != null && brandUrl.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          InkWell(
-                            child: Text(
-                              brandUrl,
-                              style: TextStyle(
-                                color: Colors.blueAccent[100], // 明るいアクセントカラー
-                                decoration: TextDecoration.underline,
-                                decorationColor: Colors.blueAccent[100],
-                              ),
-                            ),
-                            onTap: () async {
-                              final Uri url = Uri.parse(brandUrl);
-                              if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('URLを開けませんでした: $brandUrl', style: const TextStyle(color: Colors.white)),
-                                      backgroundColor: Colors.redAccent,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
-                  ),
+                    ...brands.map((brandName) {
+                      final brandUrl = BrandData.brandTopPageUrls[brandName] ?? '';
+                      final brandDescription = BrandData.brandDescriptions[brandName] ?? '説明はありません。';
+                      return Card(
+                        color: Colors.white12,
+                        margin: const EdgeInsets.symmetric(vertical: 6.0),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text.rich(
+                                _highlightText(brandName, query),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 17,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text.rich(
+                                _highlightText(brandDescription, query),
+                                style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                              ),
+                              if (brandUrl.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                InkWell(
+                                  child: Text.rich(
+                                    _highlightText(brandUrl, query),
+                                    style: TextStyle(
+                                      color: Colors.blueAccent[100],
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Colors.blueAccent[100],
+                                    ),
+                                  ),
+                                  onTap: () async {
+                                    final Uri url = Uri.parse(brandUrl);
+                                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('URLを開けませんでした: $brandUrl', style: const TextStyle(color: Colors.white)),
+                                            backgroundColor: Colors.redAccent,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 );
-              },
-            )
+              }).toList(),
+            ),
           ),
           actions: <Widget>[
             TextButton(
@@ -238,7 +306,15 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _hasChanges(); // 保存ボタンの表示状態を更新するためにビルド時に呼び出す
+    _hasChanges();
+
+    // ジャンル名でフィルタ
+    final filteredGenreOrder = _genreSearchQuery.isEmpty
+        ? _editableGenreOrder
+        : _editableGenreOrder.where((genre) {
+            final name = BrandData.getGenreDisplayName(genre);
+            return name.contains(_genreSearchQuery);
+          }).toList();
 
     return WillPopScope(
       onWillPop: _showExitConfirmDialog,
@@ -258,10 +334,106 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
             ),
           ),
           iconTheme: const IconThemeData(color: Colors.white),
-          // ★ AppBarの戻るボタンも onWillPop で処理されるため、特別な対応は不要
-          actions: [
-            // 保存ボタンを削除
-        ]),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(112),
+            child: Column(
+              children: [
+                // ジャンル名検索欄
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: TextField(
+                    controller: _genreSearchController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'ジャンル名で検索',
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                      filled: true,
+                      fillColor: const Color(0xFF3a3a3c),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      suffixIcon: _genreSearchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, color: Colors.white54),
+                              onPressed: () {
+                                setState(() {
+                                  _genreSearchController.clear();
+                                  _genreSearchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _genreSearchQuery = value;
+                      });
+                    },
+                  ),
+                ),
+                // ブランド名・説明・URL検索欄
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _brandSearchController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'ブランド名・説明・URLで検索',
+                            hintStyle: const TextStyle(color: Colors.white54),
+                            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                            filled: true,
+                            fillColor: const Color(0xFF3a3a3c),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            suffixIcon: _brandSearchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, color: Colors.white54),
+                                    onPressed: () {
+                                      setState(() {
+                                        _brandSearchController.clear();
+                                        _brandSearchQuery = '';
+                                      });
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _brandSearchQuery = value;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _brandSearchQuery.isEmpty
+                            ? null
+                            : () {
+                                _showAllBrandSearchDialog(context, _brandSearchQuery);
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.lightBlueAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('ブランド横断検索'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         floatingActionButton: _isSaveButtonVisible
             ? SizedBox(
@@ -292,19 +464,16 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
                 child: AdWidget(ad: _bannerAd!),
               )
             : null, // バナーがない場合は何も表示しない
-        body: ReorderableListView.builder( // ColumnとExpandedを削除し、直接ReorderableListView.builderをbodyに設定
+        body: ReorderableListView.builder(
           padding: EdgeInsets.only(
             top: 8.0,
             left: 8.0,
             right: 8.0,
-            // FABが表示されている場合はFABの高さ分、表示されていなければ最小限のパディング
-            // bottomNavigationBarがあるので、その高さは考慮不要
             bottom: _isSaveButtonVisible ? 80.0 : 16.0,
           ),
-          itemCount: _editableGenreOrder.length,
+          itemCount: filteredGenreOrder.length,
           itemBuilder: (context, index) {
-            final genre = _editableGenreOrder[index];
-            // _hasChanges(); // ここでの呼び出しは build メソッドの最初で行うように変更
+            final genre = filteredGenreOrder[index];
             return SwitchListTile(
               key: ValueKey(genre),
               tileColor: const Color(0xFF2c2c2e),
@@ -359,6 +528,126 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> {
           },
         ),
       ),
+    );
+  }
+
+  // ★ ブランド情報ダイアログ
+  Future<void> _showBrandInfoDialog(BuildContext context, SearchGenre genre) async {
+    final brands = BrandData.getBrandsForGenre(genre);
+    final genreName = BrandData.getGenreDisplayName(genre);
+
+    // ★ 検索クエリでブランド名・説明・URLをフィルタ
+    final filteredBrands = _brandSearchQuery.isEmpty
+        ? brands
+        : brands.where((brandName) {
+            final desc = BrandData.brandDescriptions[brandName] ?? '';
+            final url = BrandData.brandTopPageUrls[brandName] ?? '';
+            final q = _brandSearchQuery.toLowerCase();
+            return brandName.toLowerCase().contains(q) ||
+                desc.toLowerCase().contains(q) ||
+                url.toLowerCase().contains(q);
+          }).toList();
+
+    if (filteredBrands.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('検索条件に一致するブランドはありません。', style: const TextStyle(color: Colors.white)),
+            backgroundColor: Colors.grey[800],
+          ),
+        );
+      }
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          insetPadding: const EdgeInsets.all(.0),
+          backgroundColor: Colors.black87,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
+          title: Text(
+            '$genreName のブランド情報',
+            style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: filteredBrands.length,
+              itemBuilder: (BuildContext context, int index) {
+                final brandName = filteredBrands[index];
+                final brandUrl = BrandData.brandTopPageUrls[brandName] ?? '';
+                final brandDescription = BrandData.brandDescriptions[brandName] ?? '説明はありません。';
+
+                return Card(
+                  color: Colors.white12,
+                  margin: const EdgeInsets.symmetric(vertical: 6.0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ブランド名ハイライト
+                        Text.rich(
+                          _highlightText(brandName, _brandSearchQuery),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        // 説明文ハイライト
+                        Text.rich(
+                          _highlightText(brandDescription, _brandSearchQuery),
+                          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                        ),
+                        if (brandUrl.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          InkWell(
+                            child: Text.rich(
+                              _highlightText(brandUrl, _brandSearchQuery),
+                              style: TextStyle(
+                                color: Colors.blueAccent[100],
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.blueAccent[100],
+                              ),
+                            ),
+                            onTap: () async {
+                              final Uri url = Uri.parse(brandUrl);
+                              if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('URLを開けませんでした: $brandUrl', style: const TextStyle(color: Colors.white)),
+                                      backgroundColor: Colors.redAccent,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('閉じる', style: TextStyle(color: Colors.lightBlueAccent)),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

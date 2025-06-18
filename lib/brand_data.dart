@@ -109,6 +109,17 @@ class BrandData {
     'TOGA', 'beautiful people', 'kolor', 'N.HOOLYWOOD', 'White Mountaineering',
     'HYKE', 'Mame Kurogouchi'
   ];
+ static const Map<SearchGenre, String> genreDisplayNames = {
+    // SearchGenre.something: 'ジャンル名',
+    // ...
+  };
+
+  // 追加: 全ジャンルを返すメソッド
+  static List<SearchGenre> getAllGenres() {
+    // SearchGenre enumのすべての値をリストとして返すように修正
+    return SearchGenre.values; 
+  }
+
 
  static const Map<String, String> brandDescriptions = {
   // lifestyle
