@@ -173,35 +173,69 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
         onAdDismissedFullScreenContent: (InterstitialAd ad) {
           ad.dispose();
           _loadInterstitialAd(); // 次の広告を事前にロード
-          _openSimilarProductsSheet(context, originalProduct); // 広告が閉じられたらシートを開く
+          _showGenreSelectionDialog(context, originalProduct); // ★★★ 変更: ジャンル選択ダイアログを表示
         },
         onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
           ad.dispose();
           _loadInterstitialAd(); // 次の広告を事前にロード
-          _openSimilarProductsSheet(context, originalProduct); // 広告表示に失敗してもシートを開く
+          _showGenreSelectionDialog(context, originalProduct); // ★★★ 変更: ジャンル選択ダイアログを表示
         },
       );
       _interstitialAd!.show();
     } else {
       _loadInterstitialAd(); // 次回のために広告をロードしておく
-      _openSimilarProductsSheet(context, originalProduct); // 広告が準備できていなければ、すぐにシートを開く
+      _showGenreSelectionDialog(context, originalProduct); // ★★★ 変更: ジャンル選択ダイアログを表示
     }
     // ★★★★★ ここまで変更 ★★★★★
   }
 
   // ★★★★★ ここから追加 ★★★★★
-  void _openSimilarProductsSheet(BuildContext context, Product originalProduct) {
-    // ブランド名からジャンルを推測する
-    final SearchGenre? genre = BrandData.getGenreForBrand(originalProduct.brand);
-
-    if (genre == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('「${originalProduct.brand}」のジャンルを特定できず、類似商品を検索できません。')),
+  /// ジャンル選択ダイアログを表示する
+  Future<void> _showGenreSelectionDialog(BuildContext context, Product originalProduct) async {
+    final selectedGenre = await showDialog<SearchGenre>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: cardBackgroundColor,
+          title: Text('検索ジャンルを選択', style: TextStyle(color: primaryTextColor, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: SearchGenre.values.length,
+              itemBuilder: (BuildContext context, int index) {
+                final genre = SearchGenre.values[index];
+                return ListTile(
+                  title: Text(
+                    BrandData.getGenreDisplayName(genre),
+                    style: TextStyle(color: primaryTextColor),
+                  ),
+                  onTap: () {
+                    Navigator.of(dialogContext).pop(genre);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: Text('キャンセル', style: TextStyle(color: accentColor)),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
         );
-      }
-      return;
+      },
+    );
+
+    if (selectedGenre != null) {
+      _openSimilarProductsSheet(context, originalProduct, selectedGenre);
     }
+  }
+
+  void _openSimilarProductsSheet(BuildContext context, Product originalProduct, SearchGenre genre) {
+    // ★★★★★ ここまで変更 ★★★★★
 
     // 推測したジャンルに属するすべてのブランドを検索対象とする
     final brandsForGenre = BrandData.getBrandNamesForGenre(genre);
