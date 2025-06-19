@@ -709,7 +709,7 @@ $brandListString
         throw Exception('APIキーが設定されていません。');
       }
 
-      final model = GenerativeModel(model: 'gemini-2.0-flash-lite', apiKey: apiKey);
+      final model = GenerativeModel(model: 'gemini-2.5-flash-lite-preview-06-17', apiKey: apiKey);
       // final Uint8List imageBytes = await _imageFile!.readAsBytes(); // 元の画像バイトは使用しない
       final imagePart = DataPart('image/png', imageBytesWithRectangle); // ★ 矩形付き画像バイトに変更
       final response = await model.generateContent([
@@ -1393,7 +1393,7 @@ Future<List<Product>> fetchSimilarProductsApi(
   if (apiKey == null) {
     throw Exception('APIキーが設定されていません。');
   }
-  final model = GenerativeModel(model: 'gemini-2.0-flash-lite', apiKey: apiKey);
+  final model = GenerativeModel(model: 'gemini-2.5-flash-lite-preview-06-17', apiKey: apiKey);
   final response = await model.generateContent([Content.text(prompt)]);
   if (response.text != null) {
     final cleanedJson =
