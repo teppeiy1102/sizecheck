@@ -3,13 +3,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'procuctmodel.dart'; // Productモデルをインポート
 import 'package:google_mobile_ads/google_mobile_ads.dart'; // AdMobパッケージをインポート
 import 'dart:io'; // Platform を使用するためにインポート
-import 'dart:typed_data'; // Uint8Listのため
 import 'dart:ui' as ui; // ui.Image, ui.Canvasのため
 import 'package:webview_flutter/webview_flutter.dart'; // ★★★ WebViewパッケージをインポート ★★★
 import 'package:flutter/gestures.dart'; // ★★★ gestureRecognizers のために追加 ★★★
-import 'brand_data.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ★★★ 追加 ★★★
-import 'dart:convert'; // ★★★ 追加 ★★★
+import 'brand_data.dart'; // ジャンル・ブランドデータ
 import 'saved_products_screen.dart'; // ★★★ 追加: 後で作成するファイル ★★★
 import 'dart:ui'; // ImageFilter.blur を使用するために必要
 
@@ -62,11 +59,22 @@ class _ResultsScreenState extends State<ResultsScreen> {
   final PreferenceService _preferenceService = PreferenceService(); // ★★★ 追加 ★★★
   Set<String> _savedProductUrls = {}; // ★★★ 追加 ★★★
 
+  // --- ジャンル関連の状態変数 ---
+  late SearchGenre _selectedGenre;
+  final List<SearchGenre> _orderedSearchGenres = SearchGenre.values.toList();
+  final Map<SearchGenre, bool> _genreVisibility = {
+    for (var genre in SearchGenre.values) genre: true,
+  };
+
   @override
   void initState() {
     super.initState();
-    // 初期状態でHomeScreenでの選択状態をコピー
-    _selectedBrandsForSimilarSearch = Map<String, bool>.from(widget.selectedBrands);
+    _selectedGenre = widget.selectedGenre;
+
+    // ★★★ 修正: 選択されたジャンルに基づいてブランドリストを初期化 ★★★
+    final initialBrands = BrandData.getBrandNamesForGenre(_selectedGenre);
+    _selectedBrandsForSimilarSearch = {for (var brand in initialBrands) brand: true};
+
     _loadBannerAd();
     _loadSavedProductUrls(); // ★★★ 追加 ★★★
   }
@@ -106,6 +114,17 @@ class _ResultsScreenState extends State<ResultsScreen> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  // ★★★ 追加: ジャンル変更時にブランドリストを更新するメソッド ★★★
+  void _updateBrandSelectionForGenre(SearchGenre genre) {
+    setState(() {
+      _selectedGenre = genre;
+      // ジャンルに対応するブランドリストを取得
+      final newBrands = BrandData.getBrandNamesForGenre(genre);
+      // ブランド選択状態をリセット（すべて選択状態にする）
+      _selectedBrandsForSimilarSearch = {for (var brand in newBrands) brand: true};
+    });
   }
 
   void _loadBannerAd() {
@@ -166,7 +185,109 @@ class _ResultsScreenState extends State<ResultsScreen> {
       }
     }
   }
+
+  /// 複数の類似商品のブランド店舗をまとめて地図で検索するメソッド
+  Future<void> _openMapForSimilarBrands(List<Product> products) async {
+    if (!mounted) return;
+
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('対象の商品がありません。')),
+      );
+      return;
+    }
+
+    // 重複を除いたブランド名のリストを作成
+    final brandNames = products.map((p) => p.brand).toSet();
+    if (brandNames.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('検索対象のブランドがありません。')),
+        );
+        return;
+    }
+
+    // 検索クエリを作成 ('"ブランドA 店舗" OR "ブランドB 店舗"')
+    final searchQuery = brandNames.map((brand) => '"$brand 店舗"').join(' OR ');
+    final query = Uri.encodeComponent(searchQuery);
+
+    // プラットフォームに関わらずGoogle MapsのURLを使用する
+    final Uri mapUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+
+    if (!await launchUrl(mapUri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('地図アプリを開けませんでした。'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
   // ▲▲▲▲▲ ここまでが変更箇所 ▲▲▲▲▲
+
+  // ★★★★★ 修正: HomeScreenのデザインを適用 ★★★★★
+  Widget _buildGenreSelection() {
+    // HomeScreenからデザインの定義を引用
+    final Color darkCardColor = Colors.grey[850]!.withOpacity(0.85);
+    final Color darkPrimaryColor = const Color.fromARGB(255, 193, 115, 196);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      decoration: BoxDecoration(
+        color: darkCardColor.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white12, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 16.0, right: 8.0, bottom: 8.0),
+            child: Text(
+              'ジャンルで絞り込み', // コンテナ内のタイトル
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Row(
+              children: _orderedSearchGenres
+                  .where((g) => _genreVisibility[g] ?? true)
+                  .map((genre) {
+                final isSelected = _selectedGenre == genre;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: ChoiceChip(
+                    label: Text(BrandData.getGenreDisplayName(genre)),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        _updateBrandSelectionForGenre(genre);
+                      }
+                    },
+                    backgroundColor: Colors.grey[800],
+                    selectedColor: darkPrimaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey[300],
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: isSelected ? darkPrimaryColor.withOpacity(0.8) : Colors.grey[700]!,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,24 +311,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
         ],
       ),
-      body: Column( // bodyをColumnでラップ
+      // ★★★ 修正: bodyの実装をシンプルにし、コンテンツの責務を_buildContentに集約 ★★★
+      body: Column( 
         children: [
-          Expanded( // メインコンテンツをExpandedでラップ
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.black87, Colors.transparent,],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _buildContent(),
-              ),
+          Expanded( 
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0), // 上のpaddingを0に
+              child: _buildContent(),
             ),
           ),
-          // バナー広告のコンテナ
           if (_bannerAd != null && _isBannerAdLoaded)
             Container(
               alignment: Alignment.center,
@@ -244,12 +356,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
       );
     }
 
+    // ★★★★★ 修正: UIの順序とレイアウトを調整 ★★★★★
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: _buildResultsList(),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 16),
+        // --- ジャンル選択 ---
+        _buildGenreSelection(), // ← タイトルを削除し、これだけにする
+        const SizedBox(height: 16),
+        // --- メーカー選択 ---
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Text(
@@ -260,13 +378,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
         const SizedBox(height: 8),
         Container(
           constraints: const BoxConstraints(
-            maxHeight: 250, // メーカー選択部分の最大高さを設定 (この値は調整可能です)
+            maxHeight: 250, // メーカー選択部分の最大高さを設定
           ),
-          child: SingleChildScrollView( // 内容が最大高さを超える場合にスクロール可能にする
+          child: SingleChildScrollView( 
             child: _buildBrandSelectionForSimilarSearch(),
           ),
         ),
-        //const SizedBox(height: 8), // 必要に応じて下部のパディング調整
       ],
     );
   }
@@ -331,47 +448,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (widget.originalImageFile != null && product.boundingBox != null)
-                //  FutureBuilder<ui.Image>(
-                //    future: _loadUiImage(widget.originalImageFile!),
-                //    builder: (context, snapshot) {
-                //      if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data != null) {
-                //        final ui.Image originalUiImage = snapshot.data!;
-                //        final BoundingBox bb = product.boundingBox!;
-                //        // バウンディングボックスの座標が画像の範囲内であることを確認
-                //        if (bb.x1 < originalUiImage.width && bb.y1 < originalUiImage.height &&
-                //            bb.x2 <= originalUiImage.width && bb.y2 <= originalUiImage.height &&
-                //            bb.x1 < bb.x2 && bb.y1 < bb.y2) {
-                //          return SizedBox(
-                //            width: bb.width.toDouble(), // 切り抜き後の表示幅
-                //            height: bb.height.toDouble(), // 切り抜き後の表示高さ
-                //            child: ClipRect( // ここでは単純なClipRectを使用。より高度な表示にはCustomPaintを推奨
-                //              child: CustomPaint(
-                //                painter: CroppedImagePainter(
-                //                  image: originalUiImage,
-                //                  cropRect: Rect.fromLTRB(
-                //                    bb.x1.toDouble(),
-                //                    bb.y1.toDouble(),
-                //                    bb.x2.toDouble(),
-                //                    bb.y2.toDouble(),
-                //                  ),
-                //                ),
-                //                child: Container(
-                //                  width: bb.width.toDouble(),
-                //                  height: bb.height.toDouble(),
-                //                ),
-                //              ),
-                //            ),
-                //          );
-                //        } else {
-                //           // バウンディングボックスが無効な場合はプレースホルダーなどを表示
-                //           return const SizedBox(height: 8, child: Text("座標エラー", style: TextStyle(color: Colors.redAccent)));
-                //        }
-                //      } else if (snapshot.hasError) {
-                //        return const SizedBox(height: 8, child: Text("画像読込エラー", style: TextStyle(color: Colors.redAccent)));
-                //      }
-                //      return const SizedBox(height: 50, child: Center(child: CircularProgressIndicator())); // 画像読み込み中
-                //    },
-                //  ),
+             
                 if (widget.originalImageFile != null && product.boundingBox != null)
                   const SizedBox(height: 2),
                   Row(children: [
@@ -767,12 +844,37 @@ Expanded(
                             ),
                           ),
                           if (!isWebViewExpanded && !isLoadingSimilar && similarProducts.isNotEmpty) // ★★★ WebViewが拡大されていない時だけ表示 ★★★
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4.0,left:10), // 少し詰める
-                              child: Text(
-                                '${similarProducts.length} 件の候補', // 表示変更
-                                style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                              ),
+                            Row(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4.0,left:20), // 少し詰める
+                                  child: Text(
+                                    '${similarProducts.length} 件の候補', // 表示変更
+                                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                  ),
+                                ),
+                                Expanded(child: SizedBox()),
+
+Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                                  child: ElevatedButton.icon(
+                                    icon: Padding(
+                                      padding: const EdgeInsets.all(.0),
+                                      child: const Icon(Icons.map_rounded),
+                                    ),
+                                    label:  Text('${similarProducts.length} 件を地図で表示',style: TextStyle(color: Colors.white,fontSize: 12),),
+                                    onPressed: () => _openMapForSimilarBrands(similarProducts),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(137, 49, 149, 195),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      padding: const EdgeInsets.symmetric(vertical: 0,horizontal: 16),
+                                    ),
+                                  ),
+                                ),
+
+
+                              ],
                             ),
                           if (isLoadingSimilar)
                             const Expanded(child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.pinkAccent)))),
@@ -793,6 +895,7 @@ child: Center(
                           Expanded(
                             child: Column(
                               children: [
+                                
                                 if (!isWebViewExpanded) // ★★★ 拡大されていない時だけ表示 ★★★
                                   SizedBox(
                                     height: 230, // PageViewの高さを調整
@@ -973,42 +1076,6 @@ child: Center(
     }
     return parts.join(' / ');
   }
-
-  Future<ui.Image> _loadUiImage(File file) async {
-    final Uint8List bytes = await file.readAsBytes();
-    final ui.Codec codec = await ui.instantiateImageCodec(bytes);
-    final ui.FrameInfo frameInfo = await codec.getNextFrame();
-    return frameInfo.image;
-  }
-
-  void _showFrostedModalBottomSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent, // 背景を透明にする
-    builder: (BuildContext context) {
-      return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0), // ぼかし効果を適用
-        child: Container(
-          // ここでコンテンツの背景色を半透明に設定できます
-          // 例: Colors.white.withOpacity(0.3)
-          decoration: BoxDecoration(
-            color: Colors.white10,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20.0),
-              topRight: Radius.circular(20.0),
-            ),
-          ),
-          child: const Center(
-            child: Text(
-              'すりガラス風のBottomSheet',
-              style: TextStyle(fontSize: 20),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
 }
 
 // CustomPaintで画像の一部を描画するためのPainter

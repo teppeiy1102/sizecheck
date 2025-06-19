@@ -601,7 +601,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
     return WillPopScope(
       onWillPop: _showExitConfirmDialog,
       child: Scaffold(
-        backgroundColor: const Color(0xFF2c2c2e),
+        backgroundColor:  Colors.grey[900],
         appBar: AppBar(
           title: const Text('検索ジャンル設定', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           backgroundColor: Colors.transparent,
@@ -609,7 +609,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
           flexibleSpace: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [const Color(0xFF3a3a3c), const Color(0xFF2c2c2e)],
+                colors: [Colors.black87, Colors.white12],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -638,7 +638,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
                   unselectedLabelColor: Colors.white54,
                   indicatorColor: Colors.lightBlueAccent,
                 ),
-                SizedBox(
+                Container(
                   height: 64,
                   child: TabBarView(
                     physics: const NeverScrollableScrollPhysics(),
@@ -653,7 +653,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
                             hintText: 'ジャンル名で絞り込み',
                             hintStyle: const TextStyle(color: Colors.white54),
                             prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                            filled: true, fillColor: const Color(0xFF3a3a3c),
+                            filled: true, fillColor: Colors.black26,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                             suffixIcon: _genreSearchQuery.isNotEmpty
@@ -680,7 +680,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
                             hintText: 'ブランド名・説明・URLで検索',
                             hintStyle: const TextStyle(color: Colors.white54),
                             prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                            filled: true, fillColor: const Color(0xFF3a3a3c),
+                            filled: true, fillColor: Colors.black26,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                             suffixIcon: _brandSearchQuery.isNotEmpty
@@ -738,7 +738,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
           children: [
             ReorderableListView.builder(
               padding: EdgeInsets.only(
-                top: 8.0, left: 8.0, right: 8.0,
+                top: 5.0, left: 10.0, right: 10.0,
                 bottom: _isSaveButtonVisible ? 100.0 : 16.0,
               ),
               itemCount: filteredGenreOrder.length,
@@ -746,7 +746,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
                 final genre = filteredGenreOrder[index];
                 return SwitchListTile(
                   key: ValueKey(genre),
-                  tileColor: const Color(0xFF2c2c2e),
+                  tileColor:  Colors.grey[900],
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   title: Row(
                     children: [
@@ -771,7 +771,7 @@ class _GenreSettingsScreenState extends State<GenreSettingsScreen> with SingleTi
                     });
                   },
                   activeColor: Colors.lightBlueAccent,
-                  inactiveTrackColor: Colors.grey[700],
+                  inactiveTrackColor: Colors.grey[500],
                   secondary: ReorderableDragStartListener(
                     index: _editableGenreOrder.indexOf(genre),
                     child: const Icon(Icons.drag_handle, color: Colors.white54),
