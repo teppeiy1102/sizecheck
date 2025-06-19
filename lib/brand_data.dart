@@ -67,6 +67,18 @@ class BrandInfo {
 
 class BrandData {
   /// 全てのブランド情報をここで一元管理
+  /// 
+
+  /// ブランド名からジャンルを取得する
+  static SearchGenre? getGenreForBrand(String brandName) {
+    for (final genre in SearchGenre.values) {
+      final brands = getBrandNamesForGenre(genre);
+      if (brands.contains(brandName)) {
+        return genre;
+      }
+    }
+    return null;
+  }
   static final Map<String, BrandInfo> allBrands = {
     // lifestyle
     '無印良品': BrandInfo(

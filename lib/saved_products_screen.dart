@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'brand_data.dart'; // ★★★ 追加: brand_data.dart をインポート ★★★
 import 'package:google_mobile_ads/google_mobile_ads.dart'; // ★★★ 追加 ★★★
 import 'dart:io'; // ★★★ 追加 ★★★
+import 'similar_products_bottom_sheet.dart'; // ★★★ 追加 ★★★
+import 'home_screen.dart'; // ★★★ 追加 ★★★
 
 enum SortCriteria {
   savedDateDesc,
@@ -25,6 +27,7 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
   List<Product> _savedProducts = [];
   bool _isLoading = true;
   SortCriteria _currentSortCriteria = SortCriteria.savedDateDesc;
+  Set<String> _savedProductUrls = {}; // ★★★ 追加 ★★★
 
   // ★★★ Apple風デザインのためのカラーパレット ★★★
   final Color appBarColor = Colors.black; // AppBarの背景色 (濃いグレー)
@@ -45,17 +48,26 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
       ? 'ca-app-pub-7148683667182672/9797170752' // AndroidのテストID
       : 'ca-app-pub-7148683667182672/3020009417'; // iOSのテストID
 
+  // ★★★★★ ここから追加 ★★★★★
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialAdLoaded = false;
+  final String _interstitialAdUnitId = Platform.isAndroid
+      ? 'ca-app-pub-7148683667182672/5564236103' // AndroidのテストID (Google提供)
+      : 'ca-app-pub-7148683667182672/2770551808'; // iOSのテストID (Google提供)
+  // ★★★★★ ここまで追加 ★★★★★
 
   @override
   void initState() {
     super.initState();
     _loadSavedProducts();
     _loadBannerAd(); // ★★★ バナー広告をロード ★★★
+    _loadInterstitialAd(); // ★★★★★ 追加 ★★★★★
   }
 
   @override
   void dispose() {
     _bannerAd?.dispose(); // ★★★ バナー広告を破棄 ★★★
+    _interstitialAd?.dispose(); // ★★★★★ 追加 ★★★★★
     super.dispose();
   }
 
@@ -86,12 +98,33 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
     )..load();
   }
 
+  // ★★★★★ ここから追加 ★★★★★
+  void _loadInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: _interstitialAdUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+          _isInterstitialAdLoaded = true;
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          debugPrint('InterstitialAd failed to load: $error');
+          _interstitialAd = null;
+          _isInterstitialAdLoaded = false;
+        },
+      ),
+    );
+  }
+  // ★★★★★ ここまで追加 ★★★★★
+
   Future<void> _loadSavedProducts() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
     _savedProducts = await _preferenceService.getSavedProducts();
+    _savedProductUrls = await _preferenceService.getSavedProductUrls(); // ★★★ 追加 ★★★
     _sortProducts(); // 初期ソート
     if (mounted) {
       setState(() {
@@ -129,6 +162,169 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
     if (dateTime == null) return '日時不明';
     return DateFormat('yyyy/MM/dd HH:mm').format(dateTime);
   }
+
+  // ★★★★★ ここから追加 ★★★★★
+
+  /// 類似商品を検索するためのボトムシートを表示する
+  void _showSimilarProductsBottomSheet(BuildContext context, Product originalProduct) {
+    // ★★★★★ ここから変更 ★★★★★
+    if (_isInterstitialAdLoaded && _interstitialAd != null) {
+      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (InterstitialAd ad) {
+          ad.dispose();
+          _loadInterstitialAd(); // 次の広告を事前にロード
+          _openSimilarProductsSheet(context, originalProduct); // 広告が閉じられたらシートを開く
+        },
+        onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+          ad.dispose();
+          _loadInterstitialAd(); // 次の広告を事前にロード
+          _openSimilarProductsSheet(context, originalProduct); // 広告表示に失敗してもシートを開く
+        },
+      );
+      _interstitialAd!.show();
+    } else {
+      _loadInterstitialAd(); // 次回のために広告をロードしておく
+      _openSimilarProductsSheet(context, originalProduct); // 広告が準備できていなければ、すぐにシートを開く
+    }
+    // ★★★★★ ここまで変更 ★★★★★
+  }
+
+  // ★★★★★ ここから追加 ★★★★★
+  void _openSimilarProductsSheet(BuildContext context, Product originalProduct) {
+    // ブランド名からジャンルを推測する
+    final SearchGenre? genre = BrandData.getGenreForBrand(originalProduct.brand);
+
+    if (genre == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('「${originalProduct.brand}」のジャンルを特定できず、類似商品を検索できません。')),
+        );
+      }
+      return;
+    }
+
+    // 推測したジャンルに属するすべてのブランドを検索対象とする
+    final brandsForGenre = BrandData.getBrandNamesForGenre(genre);
+    final selectedBrands = {for (var brand in brandsForGenre) brand: true};
+
+    // `fetchSimilarProductsApi` にジャンルを渡すためのラッパー関数
+    Future<List<Product>> fetchApiCallback(Product p, List<String> brands) {
+      return fetchSimilarProductsApi(p, brands, genre);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: false,
+      builder: (BuildContext sheetContext) {
+        return SimilarProductsBottomSheet(
+          originalProduct: originalProduct,
+          selectedBrandsForSimilarSearch: selectedBrands,
+          fetchSimilarProductsApiCallback: fetchApiCallback,
+          openMapForSimilarBrands: _openMapForSimilarBrands,
+          savedProductUrls: _savedProductUrls,
+          toggleSaveProduct: _toggleSaveProduct,
+          formatSize: _formatSize,
+          darkAccentColor: accentColor,
+          darkChipColor: chipBackgroundColor,
+        );
+      },
+    ).then((_) {
+      // ボトムシートが閉じた後に、保存済みリストを再読み込みする
+      _loadSavedProducts();
+    });
+  }
+  // ★★★★★ ここまで追加 ★★★★★
+
+  /// 複数の類似商品のブランド店舗をまとめて地図で検索するメソッド
+  Future<void> _openMapForSimilarBrands(List<Product> products) async {
+    if (!mounted) return;
+
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('地図で表示する商品がありません。')),
+      );
+      return;
+    }
+
+    final brandNames = products.map((p) => p.brand).toSet();
+    if (brandNames.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('店舗を検索するブランド名がありません。')),
+      );
+      return;
+    }
+
+    final searchQuery = brandNames.map((brand) => '"$brand 店舗"').join(' OR ');
+    final query = Uri.encodeComponent(searchQuery);
+
+    final Uri mapUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+
+    if (!await launchUrl(mapUri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('地図アプリを開けませんでした。')),
+        );
+      }
+    }
+  }
+
+  /// 商品の保存状態を切り替えるメソッド
+  Future<void> _toggleSaveProduct(Product product) async {
+    if (product.productUrl.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('この商品のURLは保存できません。'), backgroundColor: Colors.redAccent),
+        );
+      }
+      return;
+    }
+    final isCurrentlySaved = _savedProductUrls.contains(product.productUrl);
+    if (isCurrentlySaved) {
+      await _preferenceService.removeProduct(product.productUrl);
+      _savedProductUrls.remove(product.productUrl);
+      _savedProducts.removeWhere((p) => p.productUrl == product.productUrl);
+    } else {
+      await _preferenceService.saveProduct(product);
+      _savedProductUrls.add(product.productUrl);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('「${product.productName}」を保存しました。'), backgroundColor: Colors.green),
+        );
+      }
+    }
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  /// ProductSizeオブジェクトを整形された文字列に変換する
+  String _formatSize(ProductSize size) {
+    List<String> parts = [];
+    if (size.width != null && size.width! > 0) {
+      parts.add('幅: ${size.width}cm');
+    }
+    if (size.height != null && size.height! > 0) {
+      parts.add('高さ: ${size.height}cm');
+    }
+    if (size.depth != null && size.depth! > 0) {
+      parts.add('奥行: ${size.depth}cm');
+    }
+    if (size.volume != null && size.volume! > 0) {
+      parts.add('容量: ${size.volume}L');
+    }
+    if (size.apparelSize != null && size.apparelSize!.isNotEmpty) {
+      parts.add('サイズ: ${size.apparelSize}');
+    }
+
+    if (parts.isEmpty) {
+      return 'サイズ情報なし';
+    }
+    return parts.join(' / ');
+  }
+
+  // ★★★★★ ここまで追加 ★★★★★
 
   @override
   Widget build(BuildContext context) {
@@ -327,42 +523,66 @@ class _SavedProductsScreenState extends State<SavedProductsScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 18),
-                                    InkWell(
-                                      onTap: () async {
-                                        final searchQuery = '${product.brand} ${product.productName}';
-                                        final Uri url = Uri.parse('https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}');
-                                        if (await canLaunchUrl(url)) {
-                                          await launchUrl(url, mode: LaunchMode.externalApplication);
-                                        } else {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text('検索ページを開けませんでした。'),
-                                                backgroundColor: Colors.redAccent,
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 6.0), // タップ領域調整
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min, // Rowの幅をコンテンツに合わせる
-                                          children: [
-                                            Icon(Icons.search, size: 18, color: accentColor), // ★★★ アクセントカラー使用 ★★★
-                                            const SizedBox(width: 8),
-                                            Text( // Expandedを削除し、テキストが短くてもアイコンに寄るように
-                                              'Googleで検索する',
-                                              style: TextStyle(
-                                                color: accentColor, // ★★★ アクセントカラー使用 ★★★
-                                                fontSize: 14.5,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                              // overflow: TextOverflow.ellipsis, // 不要
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        InkWell(
+                                          onTap: () async {
+                                            final searchQuery = '${product.brand} ${product.productName}';
+                                            final Uri url = Uri.parse('https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}');
+                                            if (await canLaunchUrl(url)) {
+                                              await launchUrl(url, mode: LaunchMode.externalApplication);
+                                            } else {
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('検索ページを開けませんでした。'),
+                                                    backgroundColor: Colors.redAccent,
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 6.0), // タップ領域調整
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min, // Rowの幅をコンテンツに合わせる
+                                              children: [
+                                                Icon(Icons.search, size: 18, color: accentColor), // ★★★ アクセントカラー使用 ★★★
+                                                const SizedBox(width: 8),
+                                                Text( // Expandedを削除し、テキストが短くてもアイコンに寄るように
+                                                  'Googleで検索する',
+                                                  style: TextStyle(
+                                                    color: accentColor, // ★★★ アクセントカラー使用 ★★★
+                                                    fontSize: 14.5,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  // overflow: TextOverflow.ellipsis, // 不要
+                                                ),
+                                              ],
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
+                                        // ★★★★★ ここから変更 ★★★★★
+                                        ElevatedButton.icon(
+                                          icon: const Icon(Icons.search_sharp, size: 16),
+                                          label: const Text('ニタモノを探す'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: accentColor.withOpacity(0.15),
+                                            foregroundColor: accentColor,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                              side: BorderSide(color: accentColor.withOpacity(0.5)),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            elevation: 0,
+                                          ),
+                                          onPressed: () {
+                                            _showSimilarProductsBottomSheet(context, product);
+                                          },
+                                        ),
+                                        // ★★★★★ ここまで変更 ★★★★★
+                                      ],
                                     ),
                                   ],
                                 ),

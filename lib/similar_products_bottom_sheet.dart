@@ -48,7 +48,7 @@ class _SimilarProductsBottomSheetState extends State<SimilarProductsBottomSheet>
   void initState() {
     super.initState();
     _savedProductUrls = widget.savedProductUrls;
-    _pageController = PageController();
+    _pageController = PageController(viewportFraction: 0.9);
     if (!initialLoadStarted) {
       initialLoadStarted = true;
       _loadSimilarProducts();
@@ -62,6 +62,14 @@ class _SimilarProductsBottomSheetState extends State<SimilarProductsBottomSheet>
   }
 
   Future<void> _loadSimilarProducts() async {
+    // 検索処理中はインジケーターを表示
+    if (mounted) {
+      setState(() {
+        isLoadingSimilar = true;
+        errorSimilarMessage = null;
+      });
+    }
+
     try {
       final activeBrands = widget.selectedBrandsForSimilarSearch.entries
           .where((entry) => entry.value)
@@ -243,7 +251,7 @@ class _SimilarProductsBottomSheetState extends State<SimilarProductsBottomSheet>
                               itemBuilder: (context, index) {
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0),
+                                      horizontal: 8.0),
                                   child: _buildSingleSimilarProductItem(
                                       context, similarProducts[index]),
                                 );
