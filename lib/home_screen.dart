@@ -742,7 +742,8 @@ $brandListString
               errorMessage: _errorMessage,
               selectedBrands: _selectedBrands,
               brandTopPageUrls: BrandData.brandTopPageUrls, // ★ 変更
-              fetchSimilarProductsApiCallback: _fetchSimilarProductsApi,
+               fetchSimilarProductsApiCallback: (product, brands) => 
+                  fetchSimilarProductsApi(product, brands, _selectedGenre),
               originalImageFile: _imageFile,
               selectedGenre: _selectedGenre, // ★★★ 追加 ★★★
             ),
@@ -766,7 +767,8 @@ $brandListString
               errorMessage: _errorMessage,
               selectedBrands: _selectedBrands,
               brandTopPageUrls: BrandData.brandTopPageUrls, // ★ 変更
-              fetchSimilarProductsApiCallback: _fetchSimilarProductsApi,
+               fetchSimilarProductsApiCallback: (product, brands) => 
+                  fetchSimilarProductsApi(product, brands, _selectedGenre),
               originalImageFile: _imageFile,
               selectedGenre: _selectedGenre, // ★★★ 追加 ★★★
             ),
@@ -796,333 +798,7 @@ $brandListString
   );
 }
 
-  Future<List<Product>> _fetchSimilarProductsApi(Product originalProduct, List<String> selectedBrands) async {
-    // ... (既存の _fetchSimilarProductsApi の実装)
-    final prompt = _generateSimilarProductPrompt(originalProduct, selectedBrands);
-    final apiKey = dotenv.env['GEMINI_API_KEY'];
-    if (apiKey == null) {
-      throw Exception('APIキーが設定されていません。');
-    }
-    final model = GenerativeModel(model: 'gemini-2.0-flash-lite', apiKey: apiKey);
-    final response = await model.generateContent([Content.text(prompt)]);
-    if (response.text != null) {
-      final cleanedJson = response.text!.replaceAll('```json', '').replaceAll('```', '').trim();
-      if (cleanedJson.isEmpty) return [];
-      try {
-        final decodedJson = jsonDecode(cleanedJson);
-        final dynamic productsData = decodedJson['products'];
-        if (productsData is List) {
-          return productsData.map((itemJson) {
-            final Map<String, dynamic> item = itemJson as Map<String, dynamic>;
-            String productUrl = item['product_url'] as String? ?? '';
-            final String brand = item['brand'] as String? ?? '';
-            if (productUrl.isEmpty && brand.isNotEmpty && BrandData.brandTopPageUrls.containsKey(brand)) { // ★ 変更
-              productUrl = BrandData.brandTopPageUrls[brand]!; // ★ 変更
-            }
-            final Map<String, dynamic> updatedItem = Map<String, dynamic>.from(item);
-            updatedItem['product_url'] = productUrl;
-            return Product.fromJson(updatedItem);
-          }).toList();
-        } else {
-          return [];
-        }
-      } catch (e) {
-        throw Exception('類似商品のレスポンスJSONの解析に失敗しました。');
-      }
-    } else {
-      throw Exception('APIから類似商品の有効なレスポンスがありませんでした。');
-    }
-  }
-    // _generateSimilarProductPrompt は変更なし
-  String _generateSimilarProductPrompt(Product originalProduct, List<String> selectedBrands) {
-    final brandListString = selectedBrands.map((b) => '- $b').join('\n');
-    String genreSpecificPromptPart;
-    String sizeInfo;
-
-    switch (_selectedGenre) {
-      case SearchGenre.lifestyle:
-        genreSpecificPromptPart = "以下の生活雑貨（家具、インテリア小物、キッチン用品、収納グッズなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0)
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-                ? "- サイズ: ${originalProduct.size.toString()}"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.apparel:
-        genreSpecificPromptPart = "以下の衣料品（トップス、ボトムス、アウター、ワンピース、ファッション小物など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-                ? "- サイズ: ${originalProduct.size.toString()}" // フォールバックとして
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.outdoor:
-        genreSpecificPromptPart = "以下のアウトドア用品（テント、寝袋、ランタン、チェア、クーラーボックス、登山用品など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0) // 例: テントや大型ギア
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // 例: バックパックの容量
-                ? "- 容量: ${originalProduct.size.volume}L"
-                : "- サイズ: ${originalProduct.description.contains('サイズ') ? '商品説明参照' : '情報なし'}"; // descriptionにサイズ情報があれば参照
-        break;
-      case SearchGenre.bag:
-        genreSpecificPromptPart = "以下のバッグ類（リュックサック、トートバッグ、ショルダーバッグ、ウエストポーチなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.volume != null && originalProduct.size.volume! > 0)
-            ? "- 容量: ${originalProduct.size.volume}L"
-            : (originalProduct.size.width! > 0 && originalProduct.size.height! > 0)
-                ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.sports:
-        genreSpecificPromptPart = "以下のスポーツ用品（ウェア、シューズ、ボール、ラケット、トレーニング器具など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
-            ? "- サイズ: ${originalProduct.size.apparelSize}" // ウェアの場合
-            : (originalProduct.size.width! > 0 && originalProduct.size.height! > 0) // シューズや用具の寸法
-                ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-                : (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // ボールなどの容量や、特定の数値サイズ
-                    ? "- サイズ/容量: ${originalProduct.size.volume}" // volumeを汎用的な数値サイズとしても使う
-                    : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.sneakers:
-        genreSpecificPromptPart = "以下のスニーカーの情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0) // width を靴のサイズとして代用 (cm)
-            ? "- サイズ: ${originalProduct.size.width}cm"
-            : (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty) // apparel_size をUS/UK/EUサイズとして代用
-                ? "- サイズ: ${originalProduct.size.apparelSize}"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.furniture:
-        genreSpecificPromptPart = "以下の家具（ソファ、テーブル、椅子、棚など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0 && originalProduct.size.depth! > 0)
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.kitchenware:
-        genreSpecificPromptPart = "以下のキッチン用品（鍋、フライパン、包丁、食器など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : (originalProduct.size.volume != null && originalProduct.size.volume! > 0)
-                ? "- 容量: ${originalProduct.size.volume}L"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.homedecor:
-        genreSpecificPromptPart = "以下のインテリア雑貨（照明、時計、花瓶、アートなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.beddingbath:
-        genreSpecificPromptPart = "以下の寝具・バス用品（布団、枕、タオル、バスマットなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0) // 例: 布団やバスマット
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.jewelry:
-      case SearchGenre.jewelryHighBrand:
-        genreSpecificPromptPart = "以下のジュエリー（ネックレス、リング、ピアス、ブレスレットなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = "- サイズ: ${originalProduct.description.contains('サイズ') || originalProduct.description.contains('号') ? '商品説明参照' : '情報なし'}";
-        break;
-      case SearchGenre.watches:
-        genreSpecificPromptPart = "以下の腕時計の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0) // ケース径など
-            ? "- ケースサイズ: ${originalProduct.size.width}mm"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.eyewear:
-        genreSpecificPromptPart = "以下のメガネやサングラスの情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0) // レンズ幅やテンプル長など
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.electronics:
-        genreSpecificPromptPart = "以下の家電製品（テレビ、冷蔵庫、洗濯機、掃除機など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0 && originalProduct.size.depth! > 0)
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // 例: 冷蔵庫の容量
-                ? "- 容量: ${originalProduct.size.volume}L"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.audiodevices:
-        genreSpecificPromptPart = "以下のオーディオ機器（ヘッドフォン、スピーカー、イヤホンなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.cameras:
-        genreSpecificPromptPart = "以下のカメラ（デジタルカメラ、一眼レフ、アクションカメラなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0 && originalProduct.size.depth! > 0)
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.stationery:
-        genreSpecificPromptPart = "以下の文房具（ペン、ノート、手帳、ファイルなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty) // 例: ノートのサイズ(A4, B5)
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0)
-                ? "- サイズ: ${originalProduct.size.toString()}"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.musicalinstruments:
-        genreSpecificPromptPart = "以下の楽器（ギター、ピアノ、ドラム、管楽器など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0 && originalProduct.size.depth! > 0)
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.beauty:
-        genreSpecificPromptPart = "以下のコスメ・美容製品（化粧水、ファンデーション、香水、ヘアケア用品など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // 容量(ml, g)
-            ? "- 容量: ${originalProduct.size.volume}${originalProduct.description.toLowerCase().contains('ml') ? 'ml' : (originalProduct.description.toLowerCase().contains('g') ? 'g' : '')}"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.healthcare:
-        genreSpecificPromptPart = "以下のヘルスケア用品（マッサージ器、体重計、血圧計、サポーターなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty) // サポーターのサイズなど
-                ? "- サイズ: ${originalProduct.size.apparelSize}"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.petsupplies:
-        genreSpecificPromptPart = "以下のペット用品（ドッグフード、キャットタワー、おもちゃ、首輪など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // フードの重さ(kg)や容量(L)
-                ? "- 重量/容量: ${originalProduct.size.volume}${originalProduct.description.toLowerCase().contains('kg') ? 'kg' : (originalProduct.description.toLowerCase().contains('l') ? 'L' : '')}"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.apparelHighBrand:
-        genreSpecificPromptPart = "以下のハイブランドのアパレル製品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.furnitureHighBrand:
-        genreSpecificPromptPart = "以下のハイブランドの家具製品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0 && originalProduct.size.depth! > 0)
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.bagHighBrand:
-        genreSpecificPromptPart = "以下のハイブランドのバッグ製品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 && originalProduct.size.height! > 0 && originalProduct.size.depth! > 0)
-            ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
-            : (originalProduct.size.volume != null && originalProduct.size.volume! > 0)
-                ? "- 容量: ${originalProduct.size.volume}L"
-                : "- サイズ: 情報なし";
-        break;
-      // jewelryHighBrand は jewelry と同じ処理
-      case SearchGenre.fitness:
-        genreSpecificPromptPart = "以下のフィットネス用品（トレーニングウェア、ヨガマット、ダンベル、プロテインなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty) // ウェアのサイズ
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0) // 器具のサイズ
-                ? "- サイズ: ${originalProduct.size.toString()}"
-                : (originalProduct.size.volume != null && originalProduct.size.volume! > 0) // プロテインの量など
-                    ? "- 重量/容量: ${originalProduct.size.volume}${originalProduct.description.toLowerCase().contains('kg') ? 'kg' : (originalProduct.description.toLowerCase().contains('g') ? 'g' : '')}"
-                    : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.bicycle:
-        genreSpecificPromptPart = "以下の自転車（シティサイクル、電動アシスト自転車、折りたたみ自転車など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty) // タイヤサイズ(インチ)など
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.bicycleSports:
-        genreSpecificPromptPart = "以下のスポーツ自転車（ロードバイク、マウンテンバイク、クロスバイクなど）や関連パーツの情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty) // フレームサイズやタイヤサイズ
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : (originalProduct.size.width! > 0) // パーツのサイズなど
-                ? "- サイズ: ${originalProduct.size.width}mm"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.vintageClothing:
-        genreSpecificPromptPart = "以下の古着（ヴィンテージ衣料品、年代物の服飾品など）の情報と、指定されたメーカー（ショップ）のリストに基づいて、類似商品を提案してください。";
-        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : (originalProduct.description.toLowerCase().contains('年代') || originalProduct.description.toLowerCase().contains('size'))
-                ? "- サイズ/年代: 商品説明参照"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.antiques:
-        genreSpecificPromptPart = "以下のアンティーク品（家具、雑貨、美術品など）の情報と、指定されたメーカー（ショップ）のリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : (originalProduct.description.toLowerCase().contains('年代') || originalProduct.description.toLowerCase().contains('size'))
-                ? "- サイズ/年代: 商品説明参照"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.streetStyle:
-        genreSpecificPromptPart = "以下のストリート系ファッションアイテム（衣類、アクセサリー、シューズなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-                ? "- サイズ: ${originalProduct.size.toString()}"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.gyaruStyle:
-        genreSpecificPromptPart = "以下のギャル系ファッションアイテム（衣類、アクセサリー、シューズなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty
-            ? "- サイズ: ${originalProduct.size.apparelSize}"
-            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-                ? "- サイズ: ${originalProduct.size.toString()}"
-                : "- サイズ: 情報なし";
-        break;
-      case SearchGenre.japaneseDesigner: // ★ 追加
-        genreSpecificPromptPart = "以下の日本人デザイナーズブランドのアイテム（衣類、バッグ、アクセサリーなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。"; // ★ 追加
-        sizeInfo = originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty // ★ 追加
-            ? "- サイズ: ${originalProduct.size.apparelSize}" // ★ 追加
-            : (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0) // ★ 追加
-                ? "- サイズ: ${originalProduct.size.toString()}" // ★ 追加
-                : "- サイズ: 情報なし"; // ★ 追加
-        break; // ★ 追加
-      default:
-        genreSpecificPromptPart = "以下の商品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
-        sizeInfo = (originalProduct.size.width! > 0 || originalProduct.size.height! > 0 || originalProduct.size.depth! > 0)
-            ? "- サイズ: ${originalProduct.size.toString()}"
-            : (originalProduct.size.apparelSize != null && originalProduct.size.apparelSize!.isNotEmpty)
-                ? "- サイズ: ${originalProduct.size.apparelSize}"
-                : (originalProduct.size.volume != null && originalProduct.size.volume! > 0)
-                    ? "- 容量/数値: ${originalProduct.size.volume}"
-                    : "- サイズ: 情報なし";
-        break;
-    }
-
-    return """
-あなたは、家具や雑貨、アパレル、アウトドア用品、バッグの類似商品を提案する専門家です。
-$genreSpecificPromptPart
-
-元の商品情報:
-- 商品名: ${originalProduct.productName}
-- ブランド: ${originalProduct.brand}
-- 説明: ${originalProduct.description}
-$sizeInfo
-
-検索対象メーカー:
-$brandListString
-
-類似商品を、その商品一つ一つについて、以下の情報を厳密なJSON形式でリストとして返してください。
-複数の商品が該当する場合は、それぞれの商品情報をリストに含めてください。
-各メーカー1件ずつ提案してください。
-
-
-出力形式のルール:
-- ルート要素は `products` というキーを持つJSON配列（リスト）とします。
-- 配列の各要素は、一つの商品を表すJSONオブジェクトです。
-- 各商品オブジェクトは、以下のキーを含みます:
-  - `product_name`: 商品名を文字列で指定します。
-  - `brand`: メーカー名（検索対象メーカーのいずれか）を文字列で指定します。
-  - `size`: サイズ情報を格納するJSONオブジェクトです（生活雑貨の場合はwidth, height, depthをcm単位の数値で、アパレルの場合はS/M/L/Freeや数値、バッグの場合は容量(L)や寸法、または該当しない場合は空オブジェクト {}）。
-    - `width`: 横幅をcm単位の数値で指定します。(該当しなければ 0 または省略)
-    - `height`: 高さをcm単位の数値で指定します。(該当しなければ 0 または省略)
-    - `depth`: 奥行きをcm単位の数値で指定します。(該当しなければ 0 または省略)
-    - `apparel_size`: (アパレルの場合) S/M/L/Freeなどの文字列、または数値。該当しない場合は省略可。
-    - `volume`: (バッグや一部アウトドア用品の場合) 容量をL(リットル)単位の数値で指定します。該当しない場合は省略可。
-  - `description`: 商品の特徴や説明を文字列で指定します。
-  - `product_url`: 商品の公式ページまたは販売ページのURLを文字列で指定します。不明な場合は空文字列 "" としてください。
-  - `emoji`: その商品を最もよく表す絵文字を1つ文字列で指定します。例: "🛋️", "👕", "⛺", "🎒", "⚽", "👟"。適切な絵文字が見つからない場合は空文字列 "" としてください。
-- 該当する類似商品が一つも見つからなかった場合は、空の配列 `{"products": []}` を返してください。
-- JSONの前後に、他の説明文や挨拶などを一切含めないでください。
-""";
-  }
+  
 
 
   @override
@@ -1704,4 +1380,405 @@ class ImageDrawingPainter extends CustomPainter {
            oldDelegate.currentPanStart != currentPanStart ||
            oldDelegate.currentPanEnd != currentPanEnd;
   }
+}
+
+Future<List<Product>> fetchSimilarProductsApi(
+  Product originalProduct,
+  List<String> selectedBrands,
+  SearchGenre selectedGenre,
+) async {
+  final prompt =
+      generateSimilarProductPrompt(originalProduct, selectedBrands, selectedGenre);
+  final apiKey = dotenv.env['GEMINI_API_KEY'];
+  if (apiKey == null) {
+    throw Exception('APIキーが設定されていません。');
+  }
+  final model = GenerativeModel(model: 'gemini-2.0-flash-lite', apiKey: apiKey);
+  final response = await model.generateContent([Content.text(prompt)]);
+  if (response.text != null) {
+    final cleanedJson =
+        response.text!.replaceAll('```json', '').replaceAll('```', '').trim();
+    if (cleanedJson.isEmpty) return [];
+    try {
+      final decodedJson = jsonDecode(cleanedJson);
+      final dynamic productsData = decodedJson['products'];
+      if (productsData is List) {
+        return productsData.map((itemJson) {
+          final Map<String, dynamic> item = itemJson as Map<String, dynamic>;
+          String productUrl = item['product_url'] as String? ?? '';
+          final String brand = item['brand'] as String? ?? '';
+          if (productUrl.isEmpty &&
+              brand.isNotEmpty &&
+              BrandData.brandTopPageUrls.containsKey(brand)) {
+            productUrl = BrandData.brandTopPageUrls[brand]!;
+          }
+          final Map<String, dynamic> updatedItem =
+              Map<String, dynamic>.from(item);
+          updatedItem['product_url'] = productUrl;
+          return Product.fromJson(updatedItem);
+        }).toList();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      throw Exception('類似商品のレスポンスJSONの解析に失敗しました。');
+    }
+  } else {
+    throw Exception('APIから類似商品の有効なレスポンスがありませんでした。');
+  }
+}
+
+// 3つの引数 (Product, List<String>, SearchGenre) を受け取るように修正
+String generateSimilarProductPrompt(
+  Product originalProduct,
+  List<String> selectedBrands,
+  SearchGenre selectedGenre,
+) {
+  final brandListString = selectedBrands.map((b) => '- $b').join('\\n');
+  String genreSpecificPromptPart;
+  String sizeInfo;
+
+  switch (selectedGenre) {
+    case SearchGenre.lifestyle:
+      genreSpecificPromptPart =
+          "以下の生活雑貨（家具、インテリア小物、キッチン用品、収納グッズなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0)
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : (originalProduct.size.width! > 0 ||
+                  originalProduct.size.height! > 0 ||
+                  originalProduct.size.depth! > 0)
+              ? "- サイズ: ${originalProduct.size.toString()}"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.apparel:
+      genreSpecificPromptPart =
+          "以下の衣料品（トップス、ボトムス、アウター、ワンピース、ファッション小物など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty
+          ? "- サイズ: ${originalProduct.size.apparelSize}"
+          : (originalProduct.size.width! > 0 ||
+                  originalProduct.size.height! > 0 ||
+                  originalProduct.size.depth! > 0)
+              ? "- サイズ: ${originalProduct.size.toString()}" // フォールバックとして
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.outdoor:
+      genreSpecificPromptPart =
+          "以下のアウトドア用品（テント、寝袋、ランタン、チェア、クーラーボックス、登山用品など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0) // 例: テントや大型ギア
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : (originalProduct.size.volume != null &&
+                  originalProduct.size.volume! > 0) // 例: バックパックの容量
+              ? "- 容量: ${originalProduct.size.volume}L"
+              : "- サイズ: ${originalProduct.description.contains('サイズ') ? '商品説明参照' : '情報なし'}"; // descriptionにサイズ情報があれば参照
+      break;
+    case SearchGenre.bag:
+      genreSpecificPromptPart =
+          "以下のバッグ類（リュックサック、トートバッグ、ショルダーバッグ、ウエストポーチなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.volume != null &&
+              originalProduct.size.volume! > 0)
+          ? "- 容量: ${originalProduct.size.volume}L"
+          : (originalProduct.size.width! > 0 &&
+                  originalProduct.size.height! > 0)
+              ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.sports:
+      genreSpecificPromptPart =
+          "以下のスポーツ用品（ウェア、シューズ、ボール、ラケット、トレーニング器具など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty
+          ? "- サイズ: ${originalProduct.size.apparelSize}" // ウェアの場合
+          : (originalProduct.size.width! > 0 &&
+                  originalProduct.size.height! > 0) // シューズや用具の寸法
+              ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+              : (originalProduct.size.volume != null &&
+                      originalProduct.size.volume! > 0) // ボールなどの容量や、特定の数値サイズ
+                  ? "- サイズ/容量: ${originalProduct.size.volume}" // volumeを汎用的な数値サイズとしても使う
+                  : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.sneakers:
+      genreSpecificPromptPart =
+          "以下のスニーカーの情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0) // width を靴のサイズとして代用 (cm)
+          ? "- サイズ: ${originalProduct.size.width}cm"
+          : (originalProduct.size.apparelSize != null &&
+                  originalProduct.size.apparelSize!.isNotEmpty) // apparel_size をUS/UK/EUサイズとして代用
+              ? "- サイズ: ${originalProduct.size.apparelSize}"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.furniture:
+      genreSpecificPromptPart =
+          "以下の家具（ソファ、テーブル、椅子、棚など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0 &&
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.kitchenware:
+      genreSpecificPromptPart =
+          "以下のキッチン用品（鍋、フライパン、包丁、食器など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 ||
+              originalProduct.size.height! > 0 ||
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: ${originalProduct.size.toString()}"
+          : (originalProduct.size.volume != null &&
+                  originalProduct.size.volume! > 0)
+              ? "- 容量: ${originalProduct.size.volume}L"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.homedecor:
+      genreSpecificPromptPart =
+          "以下のインテリア雑貨（照明、時計、花瓶、アートなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 ||
+              originalProduct.size.height! > 0 ||
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: ${originalProduct.size.toString()}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.beddingbath:
+      genreSpecificPromptPart =
+          "以下の寝具・バス用品（布団、枕、タオル、バスマットなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0) // 例: 布団やバスマット
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.jewelry:
+    case SearchGenre.jewelryHighBrand:
+      genreSpecificPromptPart =
+          "以下のジュエリー（ネックレス、リング、ピアス、ブレスレットなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo =
+          "- サイズ: ${originalProduct.description.contains('サイズ') || originalProduct.description.contains('号') ? '商品説明参照' : '情報なし'}";
+      break;
+    case SearchGenre.watches:
+      genreSpecificPromptPart =
+          "以下の腕時計の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0) // ケース径など
+          ? "- ケースサイズ: ${originalProduct.size.width}mm"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.eyewear:
+      genreSpecificPromptPart =
+          "以下のメガネやサングラスの情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0) // レンズ幅やテンプル長など
+          ? "- サイズ: ${originalProduct.size.toString()}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.electronics:
+      genreSpecificPromptPart =
+          "以下の家電製品（テレビ、冷蔵庫、洗濯機、掃除機など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0 &&
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : (originalProduct.size.volume != null &&
+                  originalProduct.size.volume! > 0) // 例: 冷蔵庫の容量
+              ? "- 容量: ${originalProduct.size.volume}L"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.audiodevices:
+      genreSpecificPromptPart =
+          "以下のオーディオ機器（ヘッドフォン、スピーカー、イヤホンなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 ||
+              originalProduct.size.height! > 0 ||
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: ${originalProduct.size.toString()}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.cameras:
+      genreSpecificPromptPart =
+          "以下のカメラ（デジタルカメラ、一眼レフ、アクションカメラなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0 &&
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.stationery:
+      genreSpecificPromptPart =
+          "以下の文房具（ペン、ノート、手帳、ファイルなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty) // 例: ノートのサイズ(A4, B5)
+          ? "- サイズ: ${originalProduct.size.apparelSize}"
+          : (originalProduct.size.width! > 0 ||
+                  originalProduct.size.height! > 0)
+              ? "- サイズ: ${originalProduct.size.toString()}"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.musicalinstruments:
+      genreSpecificPromptPart =
+          "以下の楽器（ギター、ピアノ、ドラム、管楽器など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0 &&
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.beauty:
+      genreSpecificPromptPart =
+          "以下のコスメ・美容製品（化粧水、ファンデーション、香水、ヘアケア用品など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.volume != null &&
+              originalProduct.size.volume! > 0) // 容量(ml, g)
+          ? "- 容量: ${originalProduct.size.volume}${originalProduct.description.toLowerCase().contains('ml') ? 'ml' : (originalProduct.description.toLowerCase().contains('g') ? 'g' : '')}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.healthcare:
+      genreSpecificPromptPart =
+          "以下のヘルスケア用品（マッサージ器、体重計、血圧計、サポーターなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 ||
+              originalProduct.size.height! > 0 ||
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: ${originalProduct.size.toString()}"
+          : (originalProduct.size.apparelSize != null &&
+                  originalProduct.size.apparelSize!.isNotEmpty) // サポーターのサイズなど
+              ? "- サイズ: ${originalProduct.size.apparelSize}"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.petsupplies:
+      genreSpecificPromptPart =
+          "以下のペット用品（ドッグフード、キャットタワー、おもちゃ、首輪など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 ||
+              originalProduct.size.height! > 0 ||
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: ${originalProduct.size.toString()}"
+          : (originalProduct.size.volume != null &&
+                  originalProduct.size.volume! > 0) // フードの重さ(kg)や容量(L)
+              ? "- 重量/容量: ${originalProduct.size.volume}${originalProduct.description.toLowerCase().contains('kg') ? 'kg' : (originalProduct.description.toLowerCase().contains('l') ? 'L' : '')}"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.apparelHighBrand:
+      genreSpecificPromptPart =
+          "以下のハイブランドのアパレル製品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty
+          ? "- サイズ: ${originalProduct.size.apparelSize}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.furnitureHighBrand:
+      genreSpecificPromptPart =
+          "以下のハイブランドの家具製品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0 &&
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.bagHighBrand:
+      genreSpecificPromptPart =
+          "以下のハイブランドのバッグ製品の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.volume != null &&
+              originalProduct.size.volume! > 0)
+          ? "- 容量: ${originalProduct.size.volume}L"
+          : (originalProduct.size.width! > 0 &&
+                  originalProduct.size.height! > 0)
+              ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.fitness:
+      genreSpecificPromptPart =
+          "以下のフィットネス用品（トレーニングウェア、ヨガマット、ダンベル、プロテインなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 ||
+              originalProduct.size.height! > 0 ||
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: ${originalProduct.size.toString()}"
+          : (originalProduct.size.apparelSize != null &&
+                  originalProduct.size.apparelSize!.isNotEmpty)
+              ? "- サイズ: ${originalProduct.size.apparelSize}"
+              : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.bicycle:
+      genreSpecificPromptPart =
+          "以下の自転車（シティサイクル、電動アシスト自転車、折りたたみ自転車など）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0) // インチなど
+          ? "- サイズ: ${originalProduct.size.width}インチ"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.bicycleSports:
+      genreSpecificPromptPart =
+          "以下のスポーツ自転車（ロードバイク、マウンテンバイク、クロスバイクなど）や関連パーツの情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty) // フレームサイズなど
+          ? "- フレームサイズ: ${originalProduct.size.apparelSize}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.vintageClothing:
+      genreSpecificPromptPart =
+          "以下の古着（ヴィンテージ衣料品、年代物の服飾品など）の情報と、指定されたメーカー（ショップ）のリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty)
+          ? "- サイズ: ${originalProduct.size.apparelSize}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.antiques:
+      genreSpecificPromptPart =
+          "以下のアンティーク品（家具、雑貨、美術品など）の情報と、指定されたメーカー（ショップ）のリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.width! > 0 &&
+              originalProduct.size.height! > 0 &&
+              originalProduct.size.depth! > 0)
+          ? "- サイズ: 幅${originalProduct.size.width}cm x 高さ${originalProduct.size.height}cm x 奥行き${originalProduct.size.depth}cm"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.streetStyle:
+      genreSpecificPromptPart =
+          "以下のストリート系ファッションアイテム（衣類、アクセサリー、シューズなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty)
+          ? "- サイズ: ${originalProduct.size.apparelSize}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.gyaruStyle:
+      genreSpecificPromptPart =
+          "以下のギャル系ファッションアイテム（衣類、アクセサリー、シューズなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty)
+          ? "- サイズ: ${originalProduct.size.apparelSize}"
+          : "- サイズ: 情報なし";
+      break;
+    case SearchGenre.japaneseDesigner:
+      genreSpecificPromptPart =
+          "以下の日本人デザイナーズブランドのアイテム（衣類、バッグ、アクセサリーなど）の情報と、指定されたメーカーのリストに基づいて、類似商品を提案してください。";
+      sizeInfo = (originalProduct.size.apparelSize != null &&
+              originalProduct.size.apparelSize!.isNotEmpty)
+          ? "- サイズ: ${originalProduct.size.apparelSize}"
+          : "- サイズ: 情報なし";
+      break;
+  }
+
+  return """
+あなたは、指定された商品の特徴に基づき、類似商品を提案する専門家です。
+$genreSpecificPromptPart
+
+元の商品の情報:
+- 商品名: ${originalProduct.productName}
+- ブランド: ${originalProduct.brand}
+$sizeInfo
+- 説明: ${originalProduct.description}
+
+対象メーカー:
+$brandListString
+
+元の商品の特徴（デザイン、素材、機能、スタイルなど）を考慮し、各対象メーカーから最も似ている商品を最大3つまで提案してください。
+もし類似商品が見つからないメーカーがあっても、見つかったメーカーの商品だけで構いません。
+
+その商品一つ一つについて、以下の情報を厳密なJSON形式でリストとして返してください。
+複数の商品が該当する場合は、それぞれの商品情報をリストに含めてください。
+
+出力形式のルール:
+- ルート要素は `products` というキーを持つJSON配列（リスト）とします。
+- 配列の各要素は、一つの商品を表すJSONオブジェクトです。
+- 各商品オブジェクトは、以下のキーを含みます:
+  - `product_name`: 商品名を文字列で指定します。そのメーカーの呼称を使用してください。
+  - `brand`: メーカー名（対象メーカーのいずれか）を文字列で指定します。
+  - `size`: サイズ情報を格納するJSONオブジェクト（width, height, depthをcm単位の数値で、アパレルの場合はS/M/L/Freeや数値、バッグの場合は容量(L)や寸法、または該当しない場合は空オブジェクト {}）。
+  - `description`: 商品の特徴や説明を文字列で指定します。
+  - `product_url`: 商品の公式ページまたは販売ページのURLを文字列で指定します。不明な場合は空文字列 ""。
+  - `emoji`: その商品を最もよく表す絵文字を1つ文字列で指定します。
+- 該当する商品が一つも見つからなかった場合は、空の配列 `{"products": []}` を返してください。
+- JSONの前後に、他の説明文や挨拶などを一切含めないでください。
+""";
 }
