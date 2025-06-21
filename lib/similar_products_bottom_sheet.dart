@@ -130,6 +130,61 @@ class _SimilarProductsBottomSheetState extends State<SimilarProductsBottomSheet>
     });
   }
 
+  void _showProductSelectionMenu(BuildContext context) {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero),
+            ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<int>(
+      context: context,
+      position: position,
+      color: Colors.grey[850],
+      items: List.generate(similarProducts.length, (index) {
+        final product = similarProducts[index];
+        return PopupMenuItem<int>(
+          value: index,
+          child: Text(
+            '${index + 1}. ${product.brand} ${product.productName}',
+            style: const TextStyle(color: Colors.white),
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      }),
+    ).then((selectedIndex) {
+      if (selectedIndex != null) {
+        // WebViewが拡大されている場合は、まず縮小してPageViewを表示させる
+        if (isWebViewExpanded) {
+          setState(() {
+            isWebViewExpanded = false;
+          });
+          // 次のフレームでアニメーションを実行し、PageViewが構築されるのを待つ
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _pageController?.animateToPage(
+              selectedIndex,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOut,
+            );
+          });
+        } else {
+          // WebViewが拡大されていない場合は、直接アニメーションを実行
+          _pageController?.animateToPage(
+            selectedIndex,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return BackdropFilter(
@@ -144,182 +199,228 @@ class _SimilarProductsBottomSheetState extends State<SimilarProductsBottomSheet>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.grey[900]!.withOpacity(0.95),
-                  Colors.black.withOpacity(0.95)
+                  Colors.grey[700]!.withOpacity(0.3),
+                  Colors.black.withOpacity(0.3)
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
+              border: Border.all(
+                color: Colors.grey[800]!,
+                width: 1,
+              ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
                 topRight: Radius.circular(20),
+
               ),
             ),
-            child: Column(
+            child: Stack(
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12.0),
-                  child: Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[600],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'ニタモノ検索結果',
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white),
-                      ),
-                      if (!isLoadingSimilar && similarProducts.isNotEmpty)
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.map_rounded, size: 16),
-                          label: Text(
-                            '${similarProducts.length}件を地図表示',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          onPressed: () =>
-                              widget.openMapForSimilarBrands(similarProducts),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color.fromARGB(137, 49, 149, 195),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20)),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 12),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (isLoadingSimilar)
-                  const Expanded(
-                      child: Center(
-                          child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.pinkAccent)))),
-                if (!isLoadingSimilar && errorSimilarMessage != null)
-                  Expanded(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          errorSimilarMessage!,
-                          style: TextStyle(
-                              color: Colors.redAccent[100],
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16),
-                          textAlign: TextAlign.center,
+                Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      child: Container(
+                        width: 30,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[600],
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
-                  ),
-                if (!isLoadingSimilar &&
-                    similarProducts.isEmpty &&
-                    errorSimilarMessage == null)
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        '類似商品は見つかりませんでした。',
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ニタモノ検索結果',
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                          SizedBox(width: 20,),
+                          if (!isLoadingSimilar && similarProducts.isNotEmpty)
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.map_rounded, size: 16),
+                              label: Text(
+                                '${similarProducts.length}件を地図表示',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              onPressed: () =>
+                                  widget.openMapForSimilarBrands(similarProducts),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color.fromARGB(137, 49, 149, 195),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20)),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 12),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                if (!isLoadingSimilar && similarProducts.isNotEmpty)
-                  Expanded(
-                    child: Column(
-                      children: [
-                        if (!isWebViewExpanded)
-                          SizedBox(
-                            height: 230,
-                            child: PageView.builder(
-                              itemCount: similarProducts.length,
-                              controller: _pageController,
-                              onPageChanged: (index) {
-                                _updateWebView(similarProducts[index]);
-                              },
-                              itemBuilder: (context, index) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0),
-                                  child: _buildSingleSimilarProductItem(
-                                      context, similarProducts[index]),
-                                );
-                              },
+                    if (isLoadingSimilar)
+                      const Expanded(
+                          child: Center(
+                              child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.pinkAccent)))),
+                    if (!isLoadingSimilar && errorSimilarMessage != null)
+                      Expanded(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              errorSimilarMessage!,
+                              style: TextStyle(
+                                  color: Colors.redAccent[100],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16),
+                              textAlign: TextAlign.center,
                             ),
                           ),
-                        if (!isWebViewExpanded) const SizedBox(height: 8),
-                        if (_webViewControllerForSheet != null)
-                          Expanded(
-                            child: Stack(
+                        ),
+                      ),
+                    if (!isLoadingSimilar &&
+                        similarProducts.isEmpty &&
+                        errorSimilarMessage == null)
+                      const Expanded(
+                        child: Center(
+                          child: Text(
+                            '類似商品は見つかりませんでした。',
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    if (!isLoadingSimilar && similarProducts.isNotEmpty)
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Column(
                               children: [
-                                ClipRRect(
-                                  borderRadius: isWebViewExpanded
-                                      ? BorderRadius.zero
-                                      : const BorderRadius.only(
-                                          topLeft: Radius.circular(16),
-                                          topRight: Radius.circular(16),
-                                        ),
-                                  child: WebViewWidget(
-                                      controller: _webViewControllerForSheet!),
-                                ),
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: Container(
-                                    color: Colors.black54,
-                                    child: PopupMenuButton<String>(
-                                      icon: const Icon(Icons.more_vert,
-                                          color: Colors.white),
-                                      color: Colors.grey[800],
-                                      onSelected: (value) {
-                                        if (value == 'expand') {
-                                          setState(() {
-                                            isWebViewExpanded =
-                                                !isWebViewExpanded;
-                                          });
-                                        }
+                                if (!isWebViewExpanded)
+                                  SizedBox(
+                                    height: 230,
+                                    child: PageView.builder(
+                                      itemCount: similarProducts.length,
+                                      controller: _pageController,
+                                      onPageChanged: (index) {
+                                        _updateWebView(similarProducts[index]);
                                       },
-                                      itemBuilder: (BuildContext context) =>
-                                          <PopupMenuEntry<String>>[
-                                        PopupMenuItem<String>(
-                                          value: 'expand',
-                                          child: Text(
-                                              isWebViewExpanded
-                                                  ? '画像を縮小'
-                                                  : '画像を拡大',
-                                              style: const TextStyle(
-                                                  color: Colors.white)),
+                                      itemBuilder: (context, index) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8.0),
+                                          child: _buildSingleSimilarProductItem(
+                                              context, similarProducts[index]),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                if (!isWebViewExpanded) const SizedBox(height: 8),
+                                if (_webViewControllerForSheet != null)
+                                  Expanded(
+                                    child: Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: isWebViewExpanded
+                                              ? BorderRadius.zero
+                                              : const BorderRadius.only(
+                                                  topLeft: Radius.circular(16),
+                                                  topRight: Radius.circular(16),
+                                                ),
+                                          child: WebViewWidget(
+                                              controller:
+                                                  _webViewControllerForSheet!),
+                                        ),
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                borderRadius:
+                                                    BorderRadius.circular(30)),
+                                            child: PopupMenuButton<String>(
+                                              padding: const EdgeInsets.all(0),
+                                              icon: const Icon(
+                                                Icons.more_vert,
+                                                color: Colors.white,
+                                                size: 20,
+                                              ),
+                                              color: Colors.grey[800],
+                                              onSelected: (value) {
+                                                if (value == 'expand') {
+                                                  setState(() {
+                                                    isWebViewExpanded =
+                                                        !isWebViewExpanded;
+                                                  });
+                                                }
+                                              },
+                                              itemBuilder:
+                                                  (BuildContext context) =>
+                                                      <PopupMenuEntry<String>>[
+                                                PopupMenuItem<String>(
+                                                  value: 'expand',
+                                                  child: Text(
+                                                      isWebViewExpanded
+                                                          ? 'webビューを縮小'
+                                                          : 'webビューを拡大',
+                                                      style: const TextStyle(
+                                                          color: Colors.white)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
+                                if (_webViewControllerForSheet == null &&
+                                    errorSimilarMessage == null &&
+                                    similarProducts.isNotEmpty)
+                                  const Expanded(
+                                      child: Center(
+                                          child: Text('画像表示エリアの準備中です...',
+                                              style: TextStyle(
+                                                  color: Colors.orangeAccent,
+                                                  fontSize: 16)))),
                               ],
                             ),
-                          ),
-                        if (_webViewControllerForSheet == null &&
-                            errorSimilarMessage == null &&
-                            similarProducts.isNotEmpty)
-                          const Expanded(
-                              child: Center(
-                                  child: Text('画像表示エリアの準備中です...',
-                                      style: TextStyle(
-                                          color: Colors.orangeAccent,
-                                          fontSize: 16)))),
-                      ],
-                    ),
+                            Positioned(
+                              bottom: 40,
+                              right: 20,
+                              child: Builder(builder: (context) {
+                                return FloatingActionButton(
+                                  foregroundColor: Colors.white,
+                                  onPressed: () =>
+                                      _showProductSelectionMenu(context),
+                                  backgroundColor: widget.darkAccentColor,
+                                  tooltip: '商品リストから選択',
+                                  child: const Icon(Icons.list_alt_rounded),
+                                );
+                              }),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    tooltip: '閉じる',
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
+                ),
               ],
             ),
           );
