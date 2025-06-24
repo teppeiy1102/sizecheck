@@ -250,6 +250,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ),
             // ドロップダウンメニューに変更
             DropdownButtonFormField<SearchGenre>(
+              menuMaxHeight: MediaQuery.of(context).size.height * 0.5, // メニューの最大高さを設定
+              isExpanded: false,
+              borderRadius: BorderRadius.circular(20),
               value: _selectedGenre,
               items: _orderedSearchGenres
                   .where((g) => _genreVisibility[g] ?? true)

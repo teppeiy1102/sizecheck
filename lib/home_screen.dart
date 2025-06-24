@@ -319,7 +319,7 @@ $brandListString
 - ルート要素は `products` というキーを持つJSON配列（リスト）とします。
 - 配列の各要素は、一つの商品を表すJSONオブジェクトです。
 - 各商品オブジェクトは、以下のキーを含みます:
-  - `product_name`: 商品名を文字列で指定します。そのメーカーの呼称を使用してください。
+  - `product_name`: 商品名と品番を文字列で指定します。そのメーカーの呼称や品番を使用してください。
   - `brand`: メーカー名（対象メーカーのいずれか）を文字列で指定します。
   - `size`: サイズ情報を格納するJSONオブジェクト（width, height, depthをcm単位の数値で、アパレルの場合はS/M/L/Freeや数値、バッグの場合は容量(L)や寸法、または該当しない場合は空オブジェクト {}）。
   - `description`: 商品の特徴や説明を文字列で指定します。
@@ -1398,7 +1398,7 @@ const SizedBox(height: 16),
                           ),
                         ),
                         const SizedBox(height: 15),
-                        Text('  テキストAI検索',style: TextStyle(
+                        Text('検索ジャンル内からテキストでAIが見つける',style: TextStyle(
                           color: Colors.grey[300],
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -1414,7 +1414,7 @@ Padding(
                                         controller: _textSearchController,
                                         style: const TextStyle(color: Colors.white),
                                         decoration: InputDecoration(
-                                          hintText: '欲しい商品の情報を入力してください。例: 赤いシャツ や 木の棚　30cmぐらいなど',
+                                          hintText: '欲しい商品の情報を入力してください。例:木の棚　30cmぐらいなど',
                                           hintStyle: TextStyle(color: Colors.grey[400]),
                                           filled: true,
                                           fillColor: Colors.grey[850],
@@ -1428,12 +1428,20 @@ Padding(
                                     ),
                                     const SizedBox(width: 10),
                                     IconButton(
-                                      icon: const Icon(Icons.search, color: Colors.white),
+                                      icon: 
+                                     Column(children: [
+
+                                      Icon(Icons.send, color: Colors.white),
+                                      Text('AIに送信',
+                                        style: TextStyle(color: Colors.white, fontSize: 12),
+                                      )
+
+                                     ],),
                                       onPressed: _isLoading ? null : _analyzeFromText,
                                       style: IconButton.styleFrom(
-                                        backgroundColor: darkPrimaryColor,
+                                        backgroundColor: darkPrimaryColor.withAlpha(200),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(30),
                                         ),
                                         padding: const EdgeInsets.all(14),
                                       ),
@@ -1507,14 +1515,20 @@ Padding(
           if (_isLoading)
             Container(
               height: double.infinity,
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withOpacity(0.8),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(darkPrimaryColor)),
-                    const SizedBox(height: 20),
-                    Text('AIが画像を解析中です...', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    SizedBox(
+                      height: 200,
+                      width: 200,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),),
+                    ),
+                    const SizedBox(height: 100),
+                    Text('AIが解析中...', style: TextStyle(color: Colors.white, fontSize: 16)),
                   ],
                 ),
               ),
