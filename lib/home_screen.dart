@@ -35,6 +35,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
   Offset? _panCurrentOffset; // ドラッグ中の現在位置
   GlobalKey _customPaintKey = GlobalKey(); // CustomPaintのキー
 
+   final TextEditingController _textSearchController = TextEditingController(); // ★ テキスト検索用のコントローラーを追加 
+
   List<Product> _products = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -94,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
     _bannerAd?.dispose();
     _interstitialAd?.dispose();
     _displayedUiImage?.dispose(); // ui.Imageをdispose
+      final TextEditingController _textSearchController = TextEditingController(); // ★ テキスト検索用のコントローラーを追加
     super.dispose();
   }
 
@@ -187,6 +190,249 @@ Future<void> _loadGenreSettings() async {
 
     if (mounted) {
       setState(() {}); // UIを更新
+    }
+  }
+
+String _generatePromptForTextSearch(String userText, SearchGenre genre, List<String> selectedBrands) {
+    final brandListString = selectedBrands.map((b) => '- $b').join('\n');
+    String genreSpecificPromptPart;
+    // _generatePromptForRegion の switch 文を流用
+    switch (genre) {
+      case SearchGenre.lifestyle:
+        genreSpecificPromptPart = "以下のテキストで説明される生活雑貨（家具、インテリア小物、キッチン用品、収納グッズなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.apparel:
+        genreSpecificPromptPart = "以下のテキストで説明される衣料品（トップス、ボトムス、アウター、ワンピース、ファッション小物など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.outdoor:
+        genreSpecificPromptPart = "以下のテキストで説明されるアウトドア用品（テント、寝袋、ランタン、チェア、クーラーボックス、登山用品など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.bag:
+        genreSpecificPromptPart = "以下のテキストで説明されるバッグ類（リュックサック、トートバッグ、ショルダーバッグ、ウエストポーチなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.sports:
+        genreSpecificPromptPart = "以下のテキストで説明されるスポーツ用品（ウェア、シューズ、ボール、ラケット、トレーニング器具など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.sneakers:
+        genreSpecificPromptPart = "以下のテキストで説明されるスニーカーに似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.furniture:
+        genreSpecificPromptPart = "以下のテキストで説明される家具（ソファ、テーブル、椅子、棚など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.kitchenware:
+        genreSpecificPromptPart = "以下のテキストで説明されるキッチン用品（鍋、フライパン、包丁、食器など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.homedecor:
+        genreSpecificPromptPart = "以下のテキストで説明されるインテリア雑貨（照明、時計、花瓶、アートなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.beddingbath:
+        genreSpecificPromptPart = "以下のテキストで説明される寝具・バス用品（布団、枕、タオル、バスマットなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.jewelry:
+        genreSpecificPromptPart = "以下のテキストで説明されるジュエリー（ネックレス、リング、ピアス、ブレスレットなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.watches:
+        genreSpecificPromptPart = "以下のテキストで説明される腕時計に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.eyewear:
+        genreSpecificPromptPart = "以下のテキストで説明されるメガネやサングラスに似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.electronics:
+        genreSpecificPromptPart = "以下のテキストで説明される家電製品（テレビ、冷蔵庫、洗濯機、掃除機など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.audiodevices:
+        genreSpecificPromptPart = "以下のテキストで説明されるオーディオ機器（ヘッドフォン、スピーカー、イヤホンなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.cameras:
+        genreSpecificPromptPart = "以下のテキストで説明されるカメラ（デジタルカメラ、一眼レフ、アクションカメラなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.stationery:
+        genreSpecificPromptPart = "以下のテキストで説明される文房具（ペン、ノート、手帳、ファイルなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.musicalinstruments:
+        genreSpecificPromptPart = "以下のテキストで説明される楽器（ギター、ピアノ、ドラム、管楽器など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.beauty:
+        genreSpecificPromptPart = "以下のテキストで説明されるコスメ・美容製品（化粧水、ファンデーション、香水、ヘアケア用品など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.healthcare:
+        genreSpecificPromptPart = "以下のテキストで説明されるヘルスケア用品（マッサージ器、体重計、血圧計、サポーターなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.petsupplies:
+        genreSpecificPromptPart = "以下のテキストで説明されるペット用品（ドッグフード、キャットタワー、おもちゃ、首輪など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.apparelHighBrand:
+        genreSpecificPromptPart = "以下のテキストで説明されるハイブランドのアパレル製品に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.furnitureHighBrand:
+        genreSpecificPromptPart = "以下のテキストで説明されるハイブランドの家具製品に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.bagHighBrand:
+        genreSpecificPromptPart = "以下のテキストで説明されるハイブランドのバッグ製品に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.jewelryHighBrand:
+        genreSpecificPromptPart = "以下のテキストで説明されるハイブランドのジュエリー製品に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.fitness:
+        genreSpecificPromptPart = "以下のテキストで説明されるフィットネス用品（トレーニングウェア、ヨガマット、ダンベル、プロテインなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.bicycle:
+        genreSpecificPromptPart = "以下のテキストで説明される自転車（シティサイクル、電動アシスト自転車、折りたたみ自転車など）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.bicycleSports:
+        genreSpecificPromptPart = "以下のテキストで説明されるスポーツ自転車（ロードバイク、マウンテンバイク、クロスバイクなど）や関連パーツに似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.vintageClothing:
+        genreSpecificPromptPart = "以下のテキストで説明される古着（ヴィンテージ衣料品、年代物の服飾品など）に似ている商品や、関連する商品を対象メーカー（ショップ）から探し出してください。";
+        break;
+      case SearchGenre.antiques:
+        genreSpecificPromptPart = "以下のテキストで説明されるアンティーク品（家具、雑貨、美術品など）に似ている商品や、関連する商品を対象メーカー（ショップ）から探し出してください。";
+        break;
+      case SearchGenre.streetStyle:
+        genreSpecificPromptPart = "以下のテキストで説明されるストリート系ファッションアイテム（衣類、アクセサリー、シューズなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.gyaruStyle:
+        genreSpecificPromptPart = "以下のテキストで説明されるギャル系ファッションアイテム（衣類、アクセサリー、シューズなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      case SearchGenre.japaneseDesigner:
+        genreSpecificPromptPart = "以下のテキストで説明される日本人デザイナーズブランドのアイテム（衣類、バッグ、アクセサリーなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
+        break;
+      default:
+        genreSpecificPromptPart = "以下のテキストで説明される商品に似ているものや、関連する商品を対象メーカーから探し出してください。";
+        break;
+    }
+
+    return """
+あなたは、テキストから商品を特定する専門家です。
+$genreSpecificPromptPart
+
+検索キーワード:
+"$userText"
+
+対象メーカー:
+$brandListString
+
+その商品一つ一つについて、以下の情報を厳密なJSON形式でリストとして返してください。
+複数の商品が該当する場合は、それぞれの商品情報をリストに含めてください。
+
+出力形式のルール:
+- ルート要素は `products` というキーを持つJSON配列（リスト）とします。
+- 配列の各要素は、一つの商品を表すJSONオブジェクトです。
+- 各商品オブジェクトは、以下のキーを含みます:
+  - `product_name`: 商品名を文字列で指定します。そのメーカーの呼称を使用してください。
+  - `brand`: メーカー名（対象メーカーのいずれか）を文字列で指定します。
+  - `size`: サイズ情報を格納するJSONオブジェクト（width, height, depthをcm単位の数値で、アパレルの場合はS/M/L/Freeや数値、バッグの場合は容量(L)や寸法、または該当しない場合は空オブジェクト {}）。
+  - `description`: 商品の特徴や説明を文字列で指定します。
+  - `product_url`: 商品の公式ページまたは販売ページのURLを文字列で指定します。不明な場合は空文字列 ""。
+  - `emoji`: その商品を最もよく表す絵文字を1つ文字列で指定します。
+- 該当する商品が一つも見つからなかった場合は、空の配列 `{"products": []}` を返してください。
+- JSONの前後に、他の説明文や挨拶などを一切含めないでください。
+""";
+  }
+
+  /// テキスト入力から商品を検索する
+  Future<void> _analyzeFromText() async {
+    final String searchText = _textSearchController.text.trim();
+    if (searchText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('検索キーワードを入力してください。')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _products = [];
+    });
+
+    try {
+      final activeBrands = _selectedBrands.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+
+      if (activeBrands.isEmpty) {
+        throw Exception('検索対象のメーカーを1つ以上選択してください。');
+      }
+
+      final prompt = _generatePromptForTextSearch(
+        searchText,
+        _selectedGenre,
+        activeBrands,
+      );
+
+      final apiKey = dotenv.env['GEMINI_API_KEY'];
+      if (apiKey == null) {
+        throw Exception('APIキーが設定されていません。');
+      }
+
+      final model = GenerativeModel(model: 'gemini-2.5-flash-lite-preview-06-17', apiKey: apiKey);
+      final response = await model.generateContent([Content.text(prompt)]);
+
+      List<Product> products = [];
+      String? errorMessage;
+
+      if (response.text != null) {
+        final cleanedJson = response.text!.replaceAll('```json', '').replaceAll('```', '').trim();
+        final decodedJson = jsonDecode(cleanedJson);
+        final List<dynamic> productListJson = decodedJson['products'];
+        products = productListJson.map((itemJson) => Product.fromJson(itemJson as Map<String, dynamic>)).toList();
+      } else {
+        errorMessage = 'APIから有効なレスポンスがありませんでした。';
+      }
+
+      setState(() {
+        _products = products;
+        _errorMessage = errorMessage;
+      });
+
+      if (mounted && (_products.isNotEmpty || _errorMessage != null)) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ResultsScreen(
+              products: _products,
+              errorMessage: _errorMessage,
+              selectedBrands: _selectedBrands,
+              brandTopPageUrls: BrandData.brandTopPageUrls,
+              fetchSimilarProductsApiCallback: (product, brands) =>
+                  fetchSimilarProductsApi(product, brands, _selectedGenre),
+              originalImageFile: null, // テキスト検索なので画像はなし
+              selectedGenre: _selectedGenre,
+            ),
+          ),
+        );
+      } else if (mounted && _products.isEmpty && _errorMessage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('キーワードに該当する商品が見つかりませんでした。')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'エラーが発生しました: ${e.toString()}';
+      });
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ResultsScreen(
+              products: [],
+              errorMessage: _errorMessage,
+              selectedBrands: _selectedBrands,
+              brandTopPageUrls: BrandData.brandTopPageUrls,
+              originalImageFile: null,
+              selectedGenre: _selectedGenre,
+              fetchSimilarProductsApiCallback: (product, brands) =>
+                  fetchSimilarProductsApi(product, brands, _selectedGenre),
+            ),
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -1152,10 +1398,55 @@ const SizedBox(height: 16),
                           ),
                         ),
                         const SizedBox(height: 15),
+                        Text('  テキストAI検索',style: TextStyle(
+                          color: Colors.grey[300],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),),
+Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 5.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        minLines: 2,
+                                        maxLines: 2,
+                                        controller: _textSearchController,
+                                        style: const TextStyle(color: Colors.white),
+                                        decoration: InputDecoration(
+                                          hintText: '欲しい商品の情報を入力してください。例: 赤いシャツ や 木の棚　30cmぐらいなど',
+                                          hintStyle: TextStyle(color: Colors.grey[400]),
+                                          filled: true,
+                                          fillColor: Colors.grey[850],
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    IconButton(
+                                      icon: const Icon(Icons.search, color: Colors.white),
+                                      onPressed: _isLoading ? null : _analyzeFromText,
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: darkPrimaryColor,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        padding: const EdgeInsets.all(14),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
 
+
+                        const SizedBox(height: 15),
                         // ブランド選択エリア
                         Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 10.0),
+                          margin: const EdgeInsets.symmetric(horizontal: 1.0),
                           padding: const EdgeInsets.all(15),
                           decoration: BoxDecoration(
                             color: Colors.transparent,
