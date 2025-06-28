@@ -1398,11 +1398,7 @@ const SizedBox(height: 16),
                           ),
                         ),
                         const SizedBox(height: 15),
-                        Text('検索ジャンル内からテキストでAIが見つける',style: TextStyle(
-                          color: Colors.grey[300],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),),
+                        
 Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 5.0),
                                 child: Row(
@@ -1414,12 +1410,12 @@ Padding(
                                         controller: _textSearchController,
                                         style: const TextStyle(color: Colors.white),
                                         decoration: InputDecoration(
-                                          hintText: '欲しい商品の情報を入力してください。例:木の棚　30cmぐらいなど',
+                                          hintText: '例:木の棚　30cmぐらいなど',
                                           hintStyle: TextStyle(color: Colors.grey[400]),
                                           filled: true,
                                           fillColor: Colors.grey[850],
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(30),
                                             borderSide: BorderSide.none,
                                           ),
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1434,9 +1430,8 @@ Padding(
                                       Icon(Icons.send, color: Colors.white),
                                       Text('AIに送信',
                                         style: TextStyle(color: Colors.white, fontSize: 12),
-                                      )
-
-                                     ],),
+                                      ),
+                                    ],),
                                       onPressed: _isLoading ? null : _analyzeFromText,
                                       style: IconButton.styleFrom(
                                         backgroundColor: darkPrimaryColor.withAlpha(200),
@@ -1450,7 +1445,15 @@ Padding(
                                 ),
                               ),
 
-
+Padding(
+  padding: const EdgeInsets.all(8.0),
+  child: Text('検索ジャンル内からテキストでAIが商品を特定します。',style: TextStyle(
+                            color: Colors.grey[300],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),),
+),
+ 
                         const SizedBox(height: 15),
                         // ブランド選択エリア
                         Container(

@@ -1,7 +1,3 @@
-// brand_data.dart
-
-import 'package:flutter/material.dart';
-
 enum SearchGenre {
   lifestyle,
   apparel,
@@ -2059,6 +2055,14 @@ class BrandData {
         foundationYear: 2010,
         founder: '黒河内真衣子',
         country: '日本'),
+    'visvim': BrandInfo(
+  name: 'visvim',
+  description: '2001年に中村ヒロキによって設立された日本のファッションブランド。「タイムレスな、オーセンティックなプロダクト」作りを追求し、世界中から集めた天然素材や伝統技法を駆使した、こだわり抜かれたウェアやシューズを展開。FBTスニーカーはブランドの象徴的存在。',
+  url: 'https://www.visvim.tv/',
+  foundationYear: 2001,
+  founder: '中村ヒロキ',
+  country: '日本',
+),
   };
 
   /// BrandInfoオブジェクトを取得するヘルパーメソッド
@@ -2270,5 +2274,5 @@ class BrandData {
   static const List<String> _availableAntiquesShops = ['THE GLOBE ANTIQUES', "Lloyd's Antiques", 'DEMODE KEY STATION', 'ANTRO', 'CEROTE ANTIQUES', 'PTAH', 'GALLUP', 'アンティークモール銀座', 'BROCANTE', 'Found'];
   static const List<String> _availableStreetStyleBrands = ['Supreme', 'Stussy', 'A BATHING APE', 'Off-White', 'Palace Skateboards', 'KITH', 'HUF', 'Carhartt WIP', 'X-LARGE', 'Undefeated'];
   static const List<String> _availableGyaruStyleBrands = ['CECIL McBEE', 'EGOIST', 'rienda', 'LIP SERVICE', 'Delyle NOIR', 'DaTuRa', 'RESEXXY', 'GYDA', 'MOUSSY', 'SLY'];
-  static const List<String> _availableJapaneseDesignerBrands = ['COMME des GARÇONS', 'Yohji Yamamoto', 'ISSEY MIYAKE', 'sacai', 'UNDERCOVER', 'TOGA', 'beautiful people', 'kolor', 'N.HOOLYWOOD', 'White Mountaineering', 'HYKE', 'Mame Kurogouchi'];
+  static const List<String> _availableJapaneseDesignerBrands = ['COMME des GARÇONS', 'Yohji Yamamoto', 'ISSEY MIYAKE', 'sacai', 'UNDERCOVER', 'TOGA', 'beautiful people', 'kolor', 'N.HOOLYWOOD', 'White Mountaineering', 'HYKE', 'Mame Kurogouchi', 'visvim'];
 }
