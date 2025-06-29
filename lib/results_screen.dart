@@ -36,7 +36,7 @@ class ResultsScreen extends StatefulWidget {
 
 class _ResultsScreenState extends State<ResultsScreen> {
   // ダークテーマ用のベースカラー (HomeScreenから移動または共通化)
-  final Color darkPrimaryColor = const Color.fromARGB(255, 193, 115, 196)!; // メインの操作ボタンなど
+  final Color darkPrimaryColor = const Color.fromARGB(255, 193, 115, 196); // メインの操作ボタンなど
   final Color darkAccentColor = Colors.tealAccent[400]!; // 強調したい部分や一部のボタン
   final Color darkBackgroundColor = Colors.grey[900]!;
   final Color darkCardColor = Colors.grey[850]!.withOpacity(0.85);
@@ -229,7 +229,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
     // ★★★★★ 修正: HomeScreenのデザインを適用 ★★★★★
     Widget _buildGenreSelection() {
       // HomeScreenからデザインの定義を引用
-      final Color darkCardColor = Colors.grey[850]!.withOpacity(0.85);
   
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0), // パディングを調整
@@ -442,12 +441,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   Widget _buildBrandSelectionForSimilarSearch() {
     // HomeScreenのスタイルを参考に調整
-    final Color chipBackgroundColor = Colors.grey[800]!;
-    final Color chipSelectedColor = darkAccentColor.withOpacity(0.3); // darkAccentColorを使用
     final Color chipLabelColor = Colors.grey[300]!;
     final Color chipSelectedLabelColor = Colors.black;
-    final Color chipBorderColor = Colors.grey[700]!;
-    final Color chipSelectedBorderColor = darkAccentColor;
 
     // widget.selectedBrands.keys だと HomeScreen で定義された全ブランドリストになる
     // ここでは _selectedBrandsForSimilarSearch のキー（つまり HomeScreen で選択可能なブランド）を使う
@@ -489,7 +484,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
       itemCount: widget.products.length,
       itemBuilder: (context, index) {
         final product = widget.products[index];
-        final bool isSaved = _savedProductUrls.contains(product.productUrl); // ★★★ 追加 ★★★
         return Card(
           color: Colors.white12,
           elevation: 0,

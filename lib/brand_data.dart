@@ -2162,8 +2162,6 @@ class BrandData {
         return _availableGyaruStyleBrands;
       case SearchGenre.japaneseDesigner:
         return _availableJapaneseDesignerBrands;
-      default:
-        return [];
     }
   }
 
@@ -2236,8 +2234,6 @@ class BrandData {
         return "ギャル系";
       case SearchGenre.japaneseDesigner:
         return "日本人デザイナーズ";
-      default:
-        return "";
     }
   }
 
