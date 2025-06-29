@@ -14,7 +14,6 @@ import 'results_screen.dart';
 import 'brand_data.dart'; // ★ 追加
 import 'genre_settings_screen.dart'; // ★ 追加
 import 'package:shared_preferences/shared_preferences.dart'; // ★ 追加
-import 'dart:convert'; // jsonDecode/Encode のために追加
 import 'saved_products_screen.dart'; // ★★★ 追加: 後で作成するファイル ★★★
 
 // enum SearchGenre { lifestyle, apparel, outdoor, bag, sports, sneakers } // ★ brand_data.dart に移動
@@ -96,7 +95,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
     _bannerAd?.dispose();
     _interstitialAd?.dispose();
     _displayedUiImage?.dispose(); // ui.Imageをdispose
-      final TextEditingController _textSearchController = TextEditingController(); // ★ テキスト検索用のコントローラーを追加
     super.dispose();
   }
 
@@ -296,9 +294,6 @@ String _generatePromptForTextSearch(String userText, SearchGenre genre, List<Str
         break;
       case SearchGenre.japaneseDesigner:
         genreSpecificPromptPart = "以下のテキストで説明される日本人デザイナーズブランドのアイテム（衣類、バッグ、アクセサリーなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。";
-        break;
-      default:
-        genreSpecificPromptPart = "以下のテキストで説明される商品に似ているものや、関連する商品を対象メーカーから探し出してください。";
         break;
     }
 
@@ -577,27 +572,6 @@ Future<void> _saveGenreSettings() async {
       ));
   }
 
-  // 解析フローとは別にインタースティシャル広告を表示するメソッド
-  Future<void> _showInterstitialAdIfNeeded({bool isAppLaunch = false}) async {
-    // _isLoading は解析中のローディングであり、アプリ起動時の広告表示とは直接関係ない場合がある
-    // 解析ボタン押下時の広告表示(_showInterstitialAdAndAnalyze)と区別する
-    if (_isInterstitialAdLoaded && _interstitialAd != null) {
-      // 解析処理(_proceedWithAnalysis)を伴わない広告表示
-      // 他の広告表示ロジック（例：解析前広告）と競合しないように注意
-      // ここでは、単純に広告を表示するだけ
-      await _interstitialAd!.show();
-      // 表示後は _isInterstitialAdLoaded を false にし、_loadInterstitialAd を呼んでおくのが一般的
-      // onAdDismissedFullScreenContent で再ロードしているのでここでは不要かもしれないが、
-      // show() が成功した時点で次の広告を準備し始めるのが安全
-    } else {
-      debugPrint('Interstitial ad not ready for showing (isAppLaunch: $isAppLaunch).');
-      if (!_isInterstitialAdLoaded) {
-        _loadInterstitialAd(); // ロードされていなければロードを試みる
-      }
-    }
-  }
-
-  bool _shouldShowAdOnAppLaunch = false; // アプリ起動時に広告を表示すべきかどうかのフラグ
 
   Future<void> _showInterstitialAdAndAnalyze() async {
     if (_isInterstitialAdLoaded && _interstitialAd != null) {
@@ -733,9 +707,6 @@ Future<void> _saveGenreSettings() async {
       case SearchGenre.japaneseDesigner: // ★ 追加
         genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にある日本人デザイナーズブランドのアイテム（衣類、バッグ、アクセサリーなど）に似ている商品や、関連する商品を対象メーカーから探し出してください。"; // ★ 追加
         break; // ★ 追加
-      default:
-        genreSpecificPromptPart = "提供された画像に赤い枠で示されている領域にある商品に似ているものや、関連する商品を対象メーカーから探し出してください。";
-        break;
     }
 
     return """
@@ -1049,9 +1020,8 @@ $brandListString
 
   @override
   Widget build(BuildContext context) {
-    final Color darkPrimaryColor = const Color.fromARGB(255, 193, 115, 196)!;
+    final Color darkPrimaryColor = const Color.fromARGB(255, 193, 115, 196);
     final Color darkBackgroundColor = Colors.grey[900]!;
-    final Color darkCardColor = Colors.grey[850]!.withOpacity(0.9);
 
     return Scaffold(
       backgroundColor: darkBackgroundColor,
@@ -1582,7 +1552,6 @@ Padding(
   Widget _buildBrandSelection() {
     final Color darkPrimaryColor = Colors.transparent;
     final Color darkChipSelectedColor = darkPrimaryColor.withOpacity(0.7); // 選択されているチップの背景色
-    final Color darkChipSelectedLabelColor = Colors.black; // 選択されているチップのラベル色
     final Color darkChipSelectedBorderColor = darkPrimaryColor; // 選択されているチップの枠線色
 
     if (_currentAvailableBrands.isEmpty) {
