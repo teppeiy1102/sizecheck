@@ -34,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver { /
   Offset? _panCurrentOffset; // ドラッグ中の現在位置
   GlobalKey _customPaintKey = GlobalKey(); // CustomPaintのキー
 
+  bool isSearchTextMode = false; // ★ テキスト検索モードのフラグを追加
+
    final TextEditingController _textSearchController = TextEditingController(); // ★ テキスト検索用のコントローラーを追加 
 
   List<Product> _products = [];
@@ -1109,6 +1111,16 @@ $brandListString
                        mainAxisAlignment: MainAxisAlignment.center,
                        crossAxisAlignment: CrossAxisAlignment.stretch,
                        children: <Widget>[
+                        
+                        Row(children: [
+                          Expanded(child: SizedBox()),
+TextButton(onPressed: (){
+                          setState(() {
+                            isSearchTextMode = !isSearchTextMode;
+                          });
+                        }, child: Text(isSearchTextMode?'画像検索':'テキスト検索', style: TextStyle(color: Colors.white70, fontSize: 16),)),
+                        ],),
+                        if(!isSearchTextMode)...[
                          if (_imageFile == null) ...[
                            Container(
                             height: 250,
@@ -1272,7 +1284,7 @@ const SizedBox(height: 16),
                                 Expanded(
                                   flex: 2,
                                   child: ElevatedButton.icon(
-                                    icon: const Icon(Icons.science_outlined),
+                                    icon: const Icon(Icons.send),
                                     label: const Text('AIで商品を特定'),
                                     onPressed: (_isLoading || _drawnRect == null) ? null : _analyzeMarkedRegion,
                                     style: ElevatedButton.styleFrom(
@@ -1286,8 +1298,82 @@ const SizedBox(height: 16),
                               ],
                             ),
                           ),
-                        ],
-                        
+                        ]
+                        ]else...[
+ Container(
+                            height: 250,
+                           decoration: BoxDecoration(
+                             color: Colors.black54,
+                          //   border: Border.all(color: Colors.white30, width: 2),
+                             borderRadius: BorderRadius.circular(10.0),),
+                            child: 
+                           Column(
+                           mainAxisAlignment: MainAxisAlignment.center, 
+                            
+                            children: [
+
+Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    TextField(
+                                      minLines: 4,
+                                      maxLines: 4,
+                                      controller: _textSearchController,
+                                      style: const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        hintText: '探しているアイテムの特徴を入力してください。例:木の棚　30cmぐらい、5000円以下など',
+                                        hintStyle: TextStyle(color: Colors.grey[500]),
+                                        filled: true,
+                                        fillColor: Colors.white12,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(30),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                    //  height: 100,
+                                      width: 200,
+                                      child: IconButton(
+                                        icon: 
+                                       Row(
+                                       mainAxisAlignment: MainAxisAlignment.center, 
+                                       crossAxisAlignment: CrossAxisAlignment.center,
+                                        
+                                        children: [
+                                                                             
+                                        Icon(Icons.send, color: Colors.white),
+                                        Text('AIで商品を特定',
+                                          style: TextStyle(color: Colors.white, fontSize: 16),
+                                        ),
+                                                                             ],),
+                                        onPressed: _isLoading ? null : _analyzeFromText,
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: const ui.Color.fromARGB(255, 231, 98, 255),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(30),
+                                          ),
+                                          padding: const EdgeInsets.all(20),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+
+
+                           ],) 
+                            
+                            ),
+                           
+
+                        ],                        
                         const SizedBox(height: 15),
                        Padding(
                          padding: const EdgeInsets.symmetric(horizontal: 5.0),
@@ -1369,60 +1455,9 @@ const SizedBox(height: 16),
                         ),
                         const SizedBox(height: 15),
                         
-Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        minLines: 2,
-                                        maxLines: 2,
-                                        controller: _textSearchController,
-                                        style: const TextStyle(color: Colors.white),
-                                        decoration: InputDecoration(
-                                          hintText: '例:木の棚　30cmぐらいなど',
-                                          hintStyle: TextStyle(color: Colors.grey[400]),
-                                          filled: true,
-                                          fillColor: Colors.grey[850],
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(30),
-                                            borderSide: BorderSide.none,
-                                          ),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    IconButton(
-                                      icon: 
-                                     Column(children: [
 
-                                      Icon(Icons.send, color: Colors.white),
-                                      Text('AIに送信',
-                                        style: TextStyle(color: Colors.white, fontSize: 12),
-                                      ),
-                                    ],),
-                                      onPressed: _isLoading ? null : _analyzeFromText,
-                                      style: IconButton.styleFrom(
-                                        backgroundColor: darkPrimaryColor.withAlpha(200),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(30),
-                                        ),
-                                        padding: const EdgeInsets.all(14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
 
-Padding(
-  padding: const EdgeInsets.all(8.0),
-  child: Text('検索ジャンル内からテキストでAIが商品を特定します。',style: TextStyle(
-                            color: Colors.grey[300],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),),
-),
+
  
                         const SizedBox(height: 15),
                         // ブランド選択エリア
